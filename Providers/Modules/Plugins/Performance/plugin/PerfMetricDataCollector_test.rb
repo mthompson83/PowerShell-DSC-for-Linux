@@ -20,12 +20,17 @@ module PerfMetrics
         def setup
             @mock_root_dir = make_temp_directory
             @object_under_test = DataCollector.new @mock_root_dir
+
             mkdir_p @mock_root_dir, "usr", "bin"
             @lscpu = File.join(@mock_root_dir, LSCPU)
             @lscpu_result = @lscpu + ".result"
+
             mkdir_p @mock_root_dir, "bin"
             @df = File.join(@mock_root_dir, DF)
             @df_result = @lscpu + ".result"
+            @lsblk = File.join(@mock_root_dir, LSBLK)
+            @lsblk_result = @lsblk + ".result"
+
             proc_dir = mkdir_p(@mock_root_dir, "proc")
             @proc_meminfo = File.join(proc_dir, "meminfo")
             @proc_uptime = File.join(proc_dir, "uptime")
@@ -45,6 +50,8 @@ module PerfMetrics
             @mock_netvirt = nil
             @proc_uptime = nil
             @proc_meminfo = nil
+            @lsblk_result = nil
+            @lsblk = nil
             @lscpu_result = nil
             @lscpu = nil
             @df_result = nil
@@ -550,6 +557,44 @@ module PerfMetrics
             assert delta.empty?, "Missing device data: #{delta}"
         end
 
+        def test_get_disk_stats_no_baseline
+            ex = assert_raises(RuntimeError) { ||
+                @object_under_test.get_disk_stats("/dev/sda10")
+            }
+            assert ex.message.include?("baseline has not been called"), ex.inspect
+        end
+
+        def test_get_disk_stats_live
+            lsblk_path = "/bin/lsblk"
+            omit_unless File.exists?(lsblk_path), "(Linux only)"
+            sector_size = {}
+            IO.popen("sh -xvc '#{LSBLK} -snpdoFSTYPE,NAME,LOG-SEC | tr -s \" \"  | sed -n \"/ext[234]/s/[^ ]* //p\"'") { |io|
+                while (line = io.gets)
+                    data = line.split(" ")
+                    sector_size[data[0]] = data[1].to_i
+                end
+            }
+            # get raw data before and now
+
+            @object_under_test = DataCollector.new
+            @object_under_test.baseline
+
+            # now
+
+            # cause some disk activity and a short delay
+
+            # now
+
+            actual = { }
+            sector_size.each_key { |k| actual[k] = @object_under_test.get_disk_stats(k) }
+
+            # get raw data after
+
+            # now
+
+            # compare
+        end
+
     private
 
         def make_routes(devs)
@@ -881,8 +926,23 @@ module PerfMetrics
             }
         end
 
+        def mock_lsblk(devs, expect_dev=nil)
+            File.open(@lsblk, WriteASCII, 0755) { |f|
+                marker="__MARK#{randint}__"
+                f.puts "#!/bin/sh"
+                f.puts "if [ \"$1\" != '-psdJ' -o \"$2\" != '-oNAME,FSTYPE,LOG-SEC' ]; then echo bad args: $* > #{@df_result} ; exit 1; fi"
+                f.puts "if [ $# -ne 3 -o \"$3\" != '#{expected_dev}' ]; then echo bad args: $* > #{@df_result} ; exit 1; fi" unless expected_dev.nil?
+                f.puts "cat <<#{marker}"
+                f.puts JSON.generate({ "blockdevices" => devs })
+                f.puts "#{marker}"
+                f.puts "echo -n > #{@df_result}"
+                f.puts "exit 0"
+            }
+        end
+
         LSCPU = File.join(File::SEPARATOR + "usr", "bin", "lscpu");
         DF = File.join(File::SEPARATOR + "bin", "df");
+        LSBLK = File.join(File::SEPARATOR + "bin", "lsblk");
     end # class DataCollector_test
 
 end #module

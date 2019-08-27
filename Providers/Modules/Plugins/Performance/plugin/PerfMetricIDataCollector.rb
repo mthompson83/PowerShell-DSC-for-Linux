@@ -18,11 +18,11 @@ module PerfMetrics
         #       :up - cummulative system uptime
         #       :idle - cummulative system idle time
         def baseline
-            raise RuntimeError, "not implemented"
+            not_implemented
         end
 
         def start_sample
-            raise RuntimeError, "not implemented"
+            not_implemented
         end
 
         # returns:
@@ -31,7 +31,7 @@ module PerfMetrics
         # raises:
         #   Unavailable if none are found.
         def get_mma_ids
-            raise RuntimeError, "not implemented"
+            not_implemented
         end
 
         # returns: free, total
@@ -65,15 +65,20 @@ module PerfMetrics
         # given:
         #   block device name
         # returns:
-        #
+        #   an object with methods:
+        #       reads           since last call or baseline
+        #       bytes_read      since last call or baseline, nil if not available
+        #       writes          since last call or baseline
+        #       bytes_written   since last call or baseline, nil if not available
+        #       delta_time      time, in seconds, since last sample
         # raises:
         #   Unavailable if not available
         # reference:
         #   https://www.mjmwired.net/kernel/Documentation/iostats.txt
-#        def get_disk_stats(dev)
-#            # /sys/class/block/sda2/stat
-#            not_implemented
-#        end
+        def get_disk_stats(dev)
+            # /sys/class/block/sda2/stat
+            not_implemented
+        end
 
         # returns:
         #   An array of objects with methods:

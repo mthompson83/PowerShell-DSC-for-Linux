@@ -139,6 +139,10 @@ module PerfMetrics
             result
         end
 
+        def get_disk_stats(dev)
+            not_implemented
+        end
+
     private
 
         class NetData
