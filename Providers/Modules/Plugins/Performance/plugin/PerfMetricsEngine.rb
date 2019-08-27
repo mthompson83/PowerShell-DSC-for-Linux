@@ -68,7 +68,6 @@ module PerfMetrics
               super() {
                   abort_on_exception = false
 
-                  @last_network_sample_time = Time.now
                   @cummulative_data.initialize_from_baseline @data_collector.baseline
                   mma_ids = @data_collector.get_mma_ids
                   unless mma_ids
@@ -214,13 +213,10 @@ module PerfMetrics
           end
 
           def network
-            now = Time.now
-            delta_t = now - @last_network_sample_time
             @data_collector.get_net_stats.each { |d|
-                yield make_network_metric delta_t, d.device, "ReadBytesPerSecond", d.bytes_received
-                yield make_network_metric delta_t, d.device, "WriteBytesPerSecond", d.bytes_sent
+                yield make_network_metric d.delta_time, d.device, "ReadBytesPerSecond", d.bytes_received
+                yield make_network_metric d.delta_time, d.device, "WriteBytesPerSecond", d.bytes_sent
             }
-            @last_network_sample_time = now
             nil
           end
 

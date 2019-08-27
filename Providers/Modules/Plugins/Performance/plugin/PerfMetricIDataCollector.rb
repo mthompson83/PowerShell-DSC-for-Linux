@@ -80,6 +80,7 @@ module PerfMetrics
         #       device
         #       bytes_received  since last call or baseline
         #       bytes_sent      since last call or baseline
+        #       delta_time      time, in seconds, since last sample
         #   Note: Only devices that are "UP" or had activity are included
         def get_net_stats
             not_implemented

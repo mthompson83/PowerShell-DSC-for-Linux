@@ -142,8 +142,9 @@ module PerfMetrics
     private
 
         class NetData
-            def initialize(d, r, s)
+            def initialize(d, t, r, s)
                 @device = -d
+                @delta_time = t
                 @bytes_received = r
                 @bytes_sent = s
             end
@@ -152,13 +153,16 @@ module PerfMetrics
                 (@bytes_received > 0) || (@bytes_sent > 0)
             end
 
-            attr_reader :device, :bytes_received, :bytes_sent
+            attr_reader :device, :delta_time, :bytes_received, :bytes_sent
 
         end
 
-        class RawNetData < NetData
-            def initialize(d, u, r, s)
-                super(d, r, s)
+        class RawNetData
+            def initialize(d, t, u, r, s)
+                @time = t
+                @device = -d
+                @bytes_received = r
+                @bytes_sent = s
                 @up = u
             end
 
@@ -166,6 +170,7 @@ module PerfMetrics
 
             def -(other)
                 NetData.new @device,
+                            @time - other.time,
                             sub_with_wrap(@bytes_received, other.bytes_received),
                             sub_with_wrap(@bytes_sent, other.bytes_sent)
             end
@@ -175,6 +180,8 @@ module PerfMetrics
             def self.set_32_bit(is32bit)
                 @@counter_modulus = (2 ** (is32bit ? 32 : 64))
             end
+
+            attr_reader :device, :time, :bytes_received, :bytes_sent
 
             private
 
@@ -188,6 +195,7 @@ module PerfMetrics
             devices_up = get_up_net_devices
             result = { }
             File.open(File.join(@root, "proc", "net", "dev"), "rb") { |f|
+                now = Time.now
                 while (line = f.gets)
                     line = line.split(" ")
                     next if line.empty?
@@ -195,7 +203,7 @@ module PerfMetrics
                     next unless ((0...10).include? dev.length) && (dev.end_with? ":")
                     dev.chop!
                     next if Dir.exist? File.join(sys_devices_virtual_net, dev)
-                    result[dev] = RawNetData.new(dev, devices_up[dev], line[1].to_i, line[9].to_i)
+                    result[dev] = RawNetData.new(dev, now, devices_up[dev], line[1].to_i, line[9].to_i)
                 end
             }
             result

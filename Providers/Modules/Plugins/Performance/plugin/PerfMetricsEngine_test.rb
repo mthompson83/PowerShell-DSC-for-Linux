@@ -643,8 +643,8 @@ module PerfMetrics
             if1 = "tr1"
             polling_interval = 2
             expected = [
-                [ ExpectedNet.new(NetData.new(if0, 2, 4), 1, 2), ExpectedNet.new(NetData.new(if1, 4, 2), 2, 1) ],
-                [ ExpectedNet.new(NetData.new(if0, 2469, 4321), 1234.5, 2160.5), ExpectedNet.new(NetData.new(if1, 0, 0), 0, 0) ],
+                [ ExpectedNet.new(NetData.new(if0, polling_interval.to_f, 2, 4), 1, 2), ExpectedNet.new(NetData.new(if1, polling_interval, 4, 2), 2, 1) ],
+                [ ExpectedNet.new(NetData.new(if0, polling_interval, 2469, 4321), 1234.5, 2160.5), ExpectedNet.new(NetData.new(if1, polling_interval, 0, 0), 0, 0) ],
             ]
             @dc.mock_net = expected.map { |e| e.map { |n| n.net } }
 
@@ -667,15 +667,14 @@ module PerfMetrics
             assert_equal expected.size, metric_samples.length
             assert_equal expected.size, @dc.sample_intervals.length
 
-            expected_time_min = time_before_start
-            expected_time_max = expected_time_min + (polling_interval * 2)
+            expected_time_range = (time_before_start ... (time_before_start + (polling_interval * 2)))
             (0 ... expected.size).each { |i|
                 expect, sample, interval = expected[i], metric_samples[i], @dc.sample_intervals[i]
 
-                assert_operator interval.start_time, :>, expected_time_min, i.to_s
-                expected_time_min += polling_interval
-                assert_operator interval.start_time, :<, expected_time_max, i.to_s
-                expected_time_max += polling_interval
+                assert expected_time_range.cover?(interval.start_time), Proc.new { "#{i}: #{interval.start_time} should be in #{expected_time_range}" }
+                expected_time_range = Range.new(expected_time_range.begin + polling_interval,
+                                                expected_time_range.end   + polling_interval,
+                                                expected_time_range.exclude_end?)
 
                 actual = Hash.new() { |h, k| h[k] = {} }
                 assert_sample(sample, interval) { |namespace, name, value, tags|
@@ -696,18 +695,13 @@ module PerfMetrics
                     refute_nil a, "#{i}: #{dev}: not in actual"
 
                     begin
-                        # Because of process schedule fuzziness, the sample interval
-                        # may have been longer than the polling interval.
-                        # This means the rate may be lower than expected, but should never be greater
                         assert_equal data.bytes_received, a["#{Network::Read}:bytes"]
                         ar = a[Network::Read]
-                        assert_operator ar, :<=, n.rec
-                        assert_in_delta n.rec, ar
+                        assert_in_delta n.rec, ar, 0.0000001
 
                         assert_equal data.bytes_sent, a["#{Network::Write}:bytes"]
                         aw = a[Network::Write]
-                        assert_operator aw, :<=, n.sent
-                        assert_in_delta n.sent, aw
+                        assert_in_delta n.sent, aw, 0.0000001
 
                     rescue Test::Unit::AssertionFailedError => afe
                         print "\n#{File.basename(__FILE__)}(#{__LINE__}): #{i}:\n\t#{n.inspect}\n\t#{a}\n"
@@ -1080,13 +1074,14 @@ module PerfMetrics
         end
 
         class NetData
-            def initialize(d, r, s)
+            def initialize(d, dt, r, s)
                 @device = d
+                @delta_time = dt
                 @bytes_received = r
                 @bytes_sent = s
             end
 
-            attr_reader :device, :bytes_received, :bytes_sent
+            attr_reader :device, :delta_time, :bytes_received, :bytes_sent
         end
 
         class ExpectedNet
@@ -1221,6 +1216,7 @@ module PerfMetrics
         #       device
         #       bytes_received  since last call or baseline
         #       bytes_sent      since last call or baseline
+        #       delta_time      time, in seconds, since last sample
         #   Note: Only devices that are "UP" or had activity are included
         def get_net_stats
             return [] if @mock_net.empty?

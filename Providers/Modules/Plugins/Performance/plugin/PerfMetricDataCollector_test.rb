@@ -412,16 +412,25 @@ module PerfMetrics
             make_routes expected.keys
             make_virtual
             make_net_dev expected.keys.collect { |k| v = expected[k]; { :d => k, :sent => v[:base_sent], :rec => v[:base_rec] } }
+            t_before_baseline = Time.now
             @object_under_test.baseline
+            t_after_baseline = Time.now
+
+            # create a little separation between samples
+            sleep 0.25
 
             make_net_dev expected.keys.collect { |k| v = expected[k]; { :d => k, :sent => (v[:base_sent] + v[:sent]) % modulus, :rec => (v[:base_rec] + v[:rec]) % modulus } }
+            t_before_sample = Time.now
             actual = @object_under_test.get_net_stats
+            t_after_sample = Time.now
             actual.each { |v|
                 expect = expected.delete v.device
                 refute_nil expect, v.device
                 assert_equal expect[:sent], v.bytes_sent, v.device
                 assert_equal expect[:rec], v.bytes_received, v.device
-            }
+                range = ( (t_before_sample - t_after_baseline) ..  (t_after_sample - t_before_baseline) )
+                assert range.cover?(v.delta_time), Proc.new { "#{v.delta_time} should be in #{range}" }
+             }
             assert expected.empty?, expected.to_s
 
             # with no changes in the net dev data, all interfaces should report 0
