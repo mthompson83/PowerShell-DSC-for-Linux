@@ -14,6 +14,7 @@ module PerfMetrics
             @mma_id = nil
             @cpu_count = nil
             @saved_net_data = nil
+            @saved_disk_data = { }
         end
 
         def baseline
@@ -140,10 +141,70 @@ module PerfMetrics
         end
 
         def get_disk_stats(dev)
-            not_implemented
+            raise ArgumentError, "#{dev} does not start with /dev" unless dev.start_with? "/dev"
+            raise @baseline_exception if @baseline_exception
+            current = get_disk_data dev[5, dev.length]
+            raise Unavailable, "no data for #{dev}" if current.nil?
+            previous = @saved_disk_data[dev]
+            @saved_disk_data[dev] = current
+            raise Unavailable, "no previous data for #{dev}" if previous.nil?
+            current - previous
         end
 
     private
+
+        class DiskData
+        end
+
+        class RawDiskData
+            def initialize(d, t, r, rs, w, ws)
+                @device = -d
+                @time = t
+                @reads = r
+                @read_sectors = rs
+                @writes = w
+                @write_sectors = ws
+            end
+            attr_reader :device, :time, :reads, :read_sectors, :writes, :write_sectors
+
+            def -(other)
+                raise ArgumentError, "#{device} != #{other.device}" unless device == other.device
+                sector_size = @@sector_sizes[device]
+                raise Unavailable.new, "sector size not found" if sector_size.nil?
+                delta_t = (other.time - time)
+                DiskData.new(
+                                device,
+                                delta_t,
+                                (reads - other.reads),
+                                (read_sectors - other.read_sectors) * sector_size,
+                                (writes - other.writes),
+                                (write_sectors - other.write_sectors) * sector_size
+                            )
+            end
+        private
+            @sector_sizes = Hash.new() { |h, k| h[k] = get_sector_size(k) }
+
+            def self.get_sector_size(dev)
+                nil
+            end
+        end
+
+        def get_disk_data(dev)
+            path = File.join(@root, "sys", "class", "block", dev, "stat")
+            File.open(path, "rb") { |f|
+                line = f.gets
+                raise Unavailable, "#{path}: is empty" if line.nil?
+                data = line.split(" ")
+                RawDiskData.new(
+                                dev,
+                                Time.now,
+                                data[1 - 1].to_i,
+                                data[3 - 1].to_i,
+                                data[6 - 1].to_i,
+                                data[8 - 1].to_i
+                                )
+            }
+        end
 
         class NetData
             def initialize(d, t, r, s)

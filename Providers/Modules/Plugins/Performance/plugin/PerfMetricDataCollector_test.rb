@@ -568,31 +568,41 @@ module PerfMetrics
             lsblk_path = "/bin/lsblk"
             omit_unless File.exists?(lsblk_path), "(Linux only)"
             sector_size = {}
-            IO.popen("sh -xvc '#{LSBLK} -snpdoFSTYPE,NAME,LOG-SEC | tr -s \" \"  | sed -n \"/ext[234]/s/[^ ]* //p\"'") { |io|
+            IO.popen("sh -c '#{LSBLK} -snpdoFSTYPE,NAME,LOG-SEC | tr -s \" \"  | sed -n \"/ext[234]/s/[^ ]* //p\"'") { |io|
                 while (line = io.gets)
                     data = line.split(" ")
                     sector_size[data[0]] = data[1].to_i
                 end
             }
-            # get raw data before and now
 
             @object_under_test = DataCollector.new
+            live_disk_data_before = get_live_disk_data sector_size
+            omit_unless sector_size.size == (live_disk_data_before.size - 2), "inconsistent disk data (before)"
             @object_under_test.baseline
 
-            # now
-
             # cause some disk activity and a short delay
-
-            # now
+            sleep 1
 
             actual = { }
             sector_size.each_key { |k| actual[k] = @object_under_test.get_disk_stats(k) }
 
-            # get raw data after
-
-            # now
+            live_disk_data_after = get_live_disk_data sector_size
+            omit_unless live_disk_data_before.size == live_disk_data_after.size, "inconsistent disk data (before)"
 
             # compare
+            min_delta_time = live_disk_data_after[:START] - live_disk_data_before[:END]
+            max_delta_time = live_disk_data_after[:END] - live_disk_data_before[:START]
+
+            sector_size.each_key { |dev|
+                a = actual[dev]
+                refute_nil a, "#{dev} not found"
+                before = live_disk_data_before[dev]
+                after = live_disk_data_after[dev]
+                assert_in_range min_delta_time, max_delta_time, a.delta_time, dev
+                assert_in_range 0, (after[:reads] - before[:reads]), a.reads, dev
+                assert_in_range 0, (after[:writes] - before[:writes]), a.writes, dev
+            }
+
         end
 
     private
@@ -715,6 +725,30 @@ module PerfMetrics
             result
         end
 
+        def get_live_disk_data(devices)
+            result = { :START => Time.now }
+
+            File.open("/proc/diskstats", ReadASCII) { |f|
+                while line = f.gets
+                    data = line.split(" ")
+                    dev = "/dev/#{data[2]}"
+                    next unless devices.key? dev
+                    result[dev] = {
+                        :reads => data[1 + 2].to_i,
+                        :read_bytes => data[2 + 2].to_i * devices[dev],
+                        :time_reading => data[4 + 2].to_i,
+                        :writes => data[5 + 2].to_i,
+                        :write_bytes => data[7 + 2].to_i * devices[dev],
+                        :time_writing => data[8 + 2].to_i,
+                    }
+                end
+            }
+
+            result[:END] = Time.now
+
+            result
+        end
+
         def make_some_network_traffic
             system("ping", "-w", "2", "microsoft.com", :in => :close, :err => File::NULL, :out => File::NULL )
         end
@@ -829,6 +863,14 @@ module PerfMetrics
 
         def populate_proc_uptime(f, uptime, idle)
             f.puts " #{uptime} \t #{idle}\t"
+        end
+
+        def assert_in_range(expected_low, expected_high, actual, msg=nil)
+            assert_range (expected_low .. expected_high), actual, msg
+        end
+
+        def assert_range(range, actual, msg=nil)
+            assert range.cover?(actual), msg
         end
 
         def assert_lscpu_exit
