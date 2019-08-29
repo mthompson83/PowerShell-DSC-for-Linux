@@ -578,22 +578,31 @@ module PerfMetrics
 
             @object_under_test = DataCollector.new
             live_disk_data_before = get_live_disk_data sector_size
-            omit_unless sector_size.size == (live_disk_data_before.size - 2), "inconsistent disk data (before)"
+            omit_unless sector_size.size == live_disk_data_before.size, "inconsistent disk data (before)"
+            time_before_baseline = Time.now
             @object_under_test.baseline
+            time_after_baseline = Time.now
 
             # cause some disk activity and a short delay
-            sleep 1
+            File.open(make_temp_file(make_temp_directory), "wb+") { |f|
+                pattern = "xyzz" * 1024
+                t = Time.now + 0.75
+                f.puts pattern while Time.now < t
+                f.rewind
+                while f.gets do end
+            }
 
             actual = { }
+            time_before_get = Time.now
             sector_size.each_key { |k| actual[k] = @object_under_test.get_disk_stats(k) }
+            time_after_get = Time.now
 
             live_disk_data_after = get_live_disk_data sector_size
             omit_unless live_disk_data_before.size == live_disk_data_after.size, "inconsistent disk data (before)"
 
-            puts "\n=====", live_disk_data_before.inspect, "-------", live_disk_data_after, "====="
             # compare
-            min_delta_time = live_disk_data_after[:START] - live_disk_data_before[:END]
-            max_delta_time = live_disk_data_after[:END] - live_disk_data_before[:START]
+            min_delta_time = time_before_get - time_after_baseline
+            max_delta_time = time_after_get - time_before_baseline
 
             sector_size.each_key { |dev|
                 a = actual[dev]
@@ -602,7 +611,9 @@ module PerfMetrics
                 after = live_disk_data_after[dev]
                 assert_in_range min_delta_time, max_delta_time, a.delta_time, dev
                 assert_in_range 0, (after[:reads] - before[:reads]), a.reads, dev
+                assert_in_range 0, (after[:read_bytes] - before[:read_bytes]), a.bytes_read, dev
                 assert_in_range 0, (after[:writes] - before[:writes]), a.writes, dev
+                assert_in_range 0, (after[:write_bytes] - before[:write_bytes]), a.bytes_written, dev
             }
 
         end
@@ -728,7 +739,7 @@ module PerfMetrics
         end
 
         def get_live_disk_data(devices)
-            result = { :START => Time.now }
+            result = { }
 
             File.open("/proc/diskstats", ReadASCII) { |f|
                 while line = f.gets
@@ -737,7 +748,7 @@ module PerfMetrics
                     next unless devices.key? dev
                     result[dev] = {
                         :reads => data[1 + 2].to_i,
-                        :read_bytes => data[2 + 2].to_i * devices[dev],
+                        :read_bytes => data[3 + 2].to_i * devices[dev],
                         :time_reading => data[4 + 2].to_i,
                         :writes => data[5 + 2].to_i,
                         :write_bytes => data[7 + 2].to_i * devices[dev],
@@ -745,8 +756,6 @@ module PerfMetrics
                     }
                 end
             }
-
-            result[:END] = Time.now
 
             result
         end

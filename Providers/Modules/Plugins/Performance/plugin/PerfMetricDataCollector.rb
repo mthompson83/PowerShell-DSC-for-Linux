@@ -199,8 +199,8 @@ module PerfMetrics
                                     Time.now,
                                     data[1 - 1].to_i,
                                     data[3 - 1].to_i,
-                                    data[6 - 1].to_i,
-                                    data[8 - 1].to_i,
+                                    data[5 - 1].to_i,
+                                    data[7 - 1].to_i,
                                     sector_size
                                     )
                 }
