@@ -618,7 +618,43 @@ module PerfMetrics
 
         end
 
+        def test_get_disk_stats_rollover32
+            make_mock_lscpu 1, true
+            assert_get_disk_stats (2**64) - 1, (2**32) - 1, (2 ** 64)
+        end
+
+        def test_get_disk_stats_rollover
+            make_mock_lscpu 1, false
+            assert_get_disk_stats (2**32) - 1, (2**16) - 1, (2 ** 32)
+        end
+
+        def test_get_disk_stats_new disk
+            # should poll lsblk to get sector size
+            flunk
+        end
+
+        def test_get_disk_stats_lsblk_not_found
+            flunk
+        end
+
     private
+
+        def assert_get_disk_stats(big, small, modulus)
+            # create 4 mock disks, one for each of the 4 data to test.
+            # use a distinct, prime, sector size for each
+
+            # make_mock_disk_stats using big and small for initial values
+            # baseline
+            # sleep
+            # make_mock_disk_stats initial values + small increments
+            # get_disk_stats
+            # assertions
+            # sleep
+            # make_mock_disk_stats previous values + big and small values
+            # get_disk_stats
+            # assertions
+            flunk
+        end
 
         def make_routes(devs)
             File.open(@mock_netroute, WriteASCII) { |f|
