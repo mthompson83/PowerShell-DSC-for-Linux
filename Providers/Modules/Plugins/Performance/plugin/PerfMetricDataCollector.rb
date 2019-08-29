@@ -14,7 +14,7 @@ module PerfMetrics
             @mma_id = nil
             @cpu_count = nil
             @saved_net_data = nil
-            @saved_disk_data = { }
+            @saved_disk_data = DiskInventory.new(@root)
         end
 
         def baseline
@@ -23,6 +23,7 @@ module PerfMetrics
             @cpu_count, is_64_bit = get_cpu_info_baseline
             RawNetData.set_32_bit(! is_64_bit)
             @saved_net_data = get_net_data
+            @saved_disk_data.baseline
             u, i = get_cpu_idle
             { :up => u, :idle => i }
         end
@@ -143,67 +144,109 @@ module PerfMetrics
         def get_disk_stats(dev)
             raise ArgumentError, "#{dev} does not start with /dev" unless dev.start_with? "/dev"
             raise @baseline_exception if @baseline_exception
-            current = get_disk_data dev[5, dev.length]
-            raise Unavailable, "no data for #{dev}" if current.nil?
-            previous = @saved_disk_data[dev]
-            @saved_disk_data[dev] = current
-            raise Unavailable, "no previous data for #{dev}" if previous.nil?
-            current - previous
+            @saved_disk_data.get_disk_stats(dev)
         end
 
     private
-
-        class DiskData
-        end
-
-        class RawDiskData
-            def initialize(d, t, r, rs, w, ws)
-                @device = -d
-                @time = t
-                @reads = r
-                @read_sectors = rs
-                @writes = w
-                @write_sectors = ws
+        class DiskInventory
+            def initialize(root)
+                @root = root
+                @sector_sizes = Hash.new() { |h, k| h[k] = get_sector_size(k) }
+                @saved_disk_data = { }
             end
-            attr_reader :device, :time, :reads, :read_sectors, :writes, :write_sectors
 
-            def -(other)
-                raise ArgumentError, "#{device} != #{other.device}" unless device == other.device
-                sector_size = @@sector_sizes[device]
-                raise Unavailable.new, "sector size not found" if sector_size.nil?
-                delta_t = (other.time - time)
-                DiskData.new(
-                                device,
-                                delta_t,
-                                (reads - other.reads),
-                                (read_sectors - other.read_sectors) * sector_size,
-                                (writes - other.writes),
-                                (write_sectors - other.write_sectors) * sector_size
-                            )
+            def baseline
+                @sector_sizes.replace(get_sector_sizes)
+                @saved_disk_data = { }
+                @sector_sizes.each_pair { |d, s| @saved_disk_data[d] = get_disk_data(d[5, d.length], s) }
             end
+
+            def get_disk_stats(dev)
+                current = get_disk_data dev[5, dev.length], get_sector_size(dev)
+                raise Unavailable, "no data for #{dev}" if current.nil?
+                previous = @saved_disk_data[dev]
+                @saved_disk_data[dev] = current
+                raise Unavailable, "no previous data for #{dev}" if previous.nil?
+                current - previous
+            end
+
         private
-            @sector_sizes = Hash.new() { |h, k| h[k] = get_sector_size(k) }
 
-            def self.get_sector_size(dev)
-                nil
+            def get_sector_size(dev)
+                raise ArgumentError, "dev is nil" if dev.nil?
+                data = get_sector_sizes(dev)
+                data[dev]
             end
-        end
 
-        def get_disk_data(dev)
-            path = File.join(@root, "sys", "class", "block", dev, "stat")
-            File.open(path, "rb") { |f|
-                line = f.gets
-                raise Unavailable, "#{path}: is empty" if line.nil?
-                data = line.split(" ")
-                RawDiskData.new(
-                                dev,
-                                Time.now,
-                                data[1 - 1].to_i,
-                                data[3 - 1].to_i,
-                                data[6 - 1].to_i,
-                                data[8 - 1].to_i
+            def get_sector_sizes(*devices)
+                cmd = [ File.join(@root, "bin", "lsblk"), "-psdJ", "-oNAME,FSTYPE,LOG-SEC" ].concat(devices)
+                result = { }
+                IO.popen(cmd, { :in => :close, :err => File::NULL }) { |io|
+                    data = JSON.load(io)
+                    data["blockdevices"].each { |d| result[d["name"]] = d["log-sec"].to_i }
+                }
+                result
+            end
+
+            def get_disk_data(dev, sector_size)
+                path = File.join(@root, "sys", "class", "block", dev, "stat")
+                File.open(path, "rb") { |f|
+                    line = f.gets
+                    raise Unavailable, "#{path}: is empty" if line.nil?
+                    data = line.split(" ")
+                    RawDiskData.new(
+                                    dev,
+                                    Time.now,
+                                    data[1 - 1].to_i,
+                                    data[3 - 1].to_i,
+                                    data[6 - 1].to_i,
+                                    data[8 - 1].to_i,
+                                    sector_size
+                                    )
+                }
+            end
+
+            class DiskData
+                def initialize(d, t, r, rb, w, wb)
+                    @device = -d
+                    @delta_time = t
+                    @reads = r
+                    @bytes_read = rb
+                    @writes = w
+                    @bytes_written = wb
+                end
+
+                attr_reader :device, :reads, :bytes_read, :writes, :bytes_written, :delta_time
+            end
+
+            class RawDiskData
+                def initialize(d, t, r, rs, w, ws, ss)
+                    @device = -d
+                    @time = t
+                    @reads = r
+                    @read_sectors = rs
+                    @writes = w
+                    @write_sectors = ws
+                    @sector_size = ss
+                end
+
+                attr_reader :device, :time, :reads, :read_sectors, :writes, :write_sectors
+
+                def -(other)
+                    raise ArgumentError, "#{device} != #{other.device}" unless device == other.device
+                    delta_t = (time - other.time)
+                    DiskData.new(
+                                    device,
+                                    delta_t,
+                                    (reads - other.reads),
+                                    (read_sectors - other.read_sectors) * @sector_size,
+                                    (writes - other.writes),
+                                    (write_sectors - other.write_sectors) * @sector_size
                                 )
-            }
+                end
+            private
+            end
+
         end
 
         class NetData

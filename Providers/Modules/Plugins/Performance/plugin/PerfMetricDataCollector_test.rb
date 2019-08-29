@@ -30,6 +30,7 @@ module PerfMetrics
             @df_result = @lscpu + ".result"
             @lsblk = File.join(@mock_root_dir, LSBLK)
             @lsblk_result = @lsblk + ".result"
+            mock_lsblk
 
             proc_dir = mkdir_p(@mock_root_dir, "proc")
             @proc_meminfo = File.join(proc_dir, "meminfo")
@@ -589,6 +590,7 @@ module PerfMetrics
             live_disk_data_after = get_live_disk_data sector_size
             omit_unless live_disk_data_before.size == live_disk_data_after.size, "inconsistent disk data (before)"
 
+            puts "\n=====", live_disk_data_before.inspect, "-------", live_disk_data_after, "====="
             # compare
             min_delta_time = live_disk_data_after[:START] - live_disk_data_before[:END]
             max_delta_time = live_disk_data_after[:END] - live_disk_data_before[:START]
@@ -870,7 +872,10 @@ module PerfMetrics
         end
 
         def assert_range(range, actual, msg=nil)
-            assert range.cover?(actual), msg
+            assert range.cover?(actual), Proc.new {
+                msg = msg.nil? ? "" : "#{msg}: "
+                "#{msg}#{actual} should be in #{range}"
+            }
         end
 
         def assert_lscpu_exit
@@ -968,7 +973,7 @@ module PerfMetrics
             }
         end
 
-        def mock_lsblk(devs, expect_dev=nil)
+        def mock_lsblk(devs = [], expected_dev=nil)
             File.open(@lsblk, WriteASCII, 0755) { |f|
                 marker="__MARK#{randint}__"
                 f.puts "#!/bin/sh"
