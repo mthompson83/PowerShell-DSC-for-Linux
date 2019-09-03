@@ -622,21 +622,21 @@ module PerfMetrics
                 after = live_disk_data_after[dev]
                 assert_in_range min_delta_time, max_delta_time, a.delta_time, dev
                 assert_in_range 0, (after[:reads] - before[:reads]), a.reads, dev
-                assert_in_range 0, (after[:read_bytes] - before[:read_bytes]), a.bytes_read, dev
+                assert_in_range 0, (after[:bytes_read] - before[:bytes_read]), a.bytes_read, dev
                 assert_in_range 0, (after[:writes] - before[:writes]), a.writes, dev
-                assert_in_range 0, (after[:write_bytes] - before[:write_bytes]), a.bytes_written, dev
+                assert_in_range 0, (after[:bytes_written] - before[:bytes_written]), a.bytes_written, dev
             }
 
         end
 
         def test_get_disk_stats_rollover32
             make_mock_lscpu 1, true
-            assert_get_disk_stats (2**64) - 1, (2**32) - 1, (2 ** 64)
+            assert_get_disk_stats (2**32) - 1, (2**16) - 1, (2 ** 32)
         end
 
         def test_get_disk_stats_rollover
             make_mock_lscpu 1, false
-            assert_get_disk_stats (2**32) - 1, (2**16) - 1, (2 ** 32)
+            assert_get_disk_stats (2**64) - 1, (2**32) - 1, (2 ** 64)
         end
 
         def test_get_disk_stats_new disk
@@ -654,18 +654,83 @@ module PerfMetrics
             check_for_baseline_common
             # create 4 mock disks, one for each of the 4 data to test.
             # use a distinct, prime, sector size for each
+            disks = {
+
+                "reads" => {
+                            :sector_size => 3 * 512,
+                            :base   => { :reads =>   big, :read_sectors => small, :writes => small, :write_sectors => small },
+                            :deltas => [
+                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                        { :reads =>   big, :read_sectors =>     1, :writes =>     2, :write_sectors =>     3 }
+                                       ]
+                           },
+
+                "bytes_read" => {
+                            :sector_size => 5 * 512,
+                            :base   => { :reads => small, :read_sectors =>   big, :writes => small, :write_sectors => small },
+                            :deltas => [
+                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                        { :reads =>     1, :read_sectors =>   big, :writes =>     2, :write_sectors =>     3 }
+                                       ]
+                           },
+
+                "writes" => {
+                            :sector_size => 7 * 512,
+                            :base   => { :reads => small, :read_sectors => small, :writes =>   big, :write_sectors => small },
+                            :deltas => [
+                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                        { :reads =>     1, :read_sectors =>     2, :writes =>   big, :write_sectors =>     3 }
+                                       ]
+                           },
+
+                "bytes_written" => {
+                            :sector_size => 11 * 512,
+                            :base   => { :reads => small, :read_sectors => small, :writes => small, :write_sectors =>   big },
+                            :deltas => [
+                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                        { :reads =>     1, :read_sectors =>     2, :writes =>     3, :write_sectors =>   big }
+                                       ]
+                           },
+
+            }
+
+            mock_lsblk disks.map { |k, v| { "name" => "/dev/#{k}", "fstype" => "ext4", "log-sec" => v[:sector_size] } }
 
             # make_mock_disk_stats using big and small for initial values
-            # baseline
-            # sleep
-            # make_mock_disk_stats initial values + small increments
-            # get_disk_stats
-            # assertions
-            # sleep
-            # make_mock_disk_stats previous values + big and small values
-            # get_disk_stats
-            # assertions
-            flunk
+            current = disks.map { |k, v|
+                                    baseline = v[:base].clone
+                                    baseline[:name] = k
+                                    baseline
+                               }
+            make_mock_disk_stats current
+
+            @object_under_test.baseline
+
+            expected = { }
+            (0 ... 2).each { |i|
+                sleep 1
+                current.each_index { |j|
+                    c = current[j]
+                    dev_name = c[:name]
+                    dev = disks[dev_name]
+                    delta = dev[:deltas][i]
+                    c.merge!(delta) { |k, old_val, delta| (old_val + delta) % modulus }
+                    expected["/dev/#{dev_name}"] = {
+                        "reads" => delta[:reads],
+                        "bytes_read" => delta[:read_sectors] * dev[:sector_size],
+                        "writes" => delta[:writes],
+                        "bytes_written" => delta[:write_sectors] * dev[:sector_size],
+                    }
+                }
+                make_mock_disk_stats current
+
+                expected.each_pair { |dev_name, expected_values|
+                    actual = @object_under_test.get_disk_stats dev_name
+                    [ "reads", "bytes_read", "writes", "bytes_written" ].each { |value_key|
+                        assert_equal expected_values[value_key], actual.method(value_key)[], "#{i}: #{dev_name}: #{value_key}"
+                    }
+                }
+            }
         end
 
         def make_routes(devs)
@@ -804,10 +869,10 @@ module PerfMetrics
                     next unless devices.key? dev
                     result[dev] = {
                         :reads => data[1 + 2].to_i,
-                        :read_bytes => data[3 + 2].to_i * devices[dev],
+                        :bytes_read => data[3 + 2].to_i * devices[dev],
                         :time_reading => data[4 + 2].to_i,
                         :writes => data[5 + 2].to_i,
-                        :write_bytes => data[7 + 2].to_i * devices[dev],
+                        :bytes_written => data[7 + 2].to_i * devices[dev],
                         :time_writing => data[8 + 2].to_i,
                     }
                 end
@@ -1049,6 +1114,29 @@ module PerfMetrics
                 f.puts "#{marker}"
                 f.puts "echo -n > #{@df_result}"
                 f.puts "exit 0"
+            }
+        end
+
+        def make_mock_disk_stats(devs)
+            devs.each { |dev|
+                mkdir_p(@mock_root_dir, "sys", "class", "block", dev[:name])
+                dev_path = File.join(@mock_root_dir, "sys", "class", "block", dev[:name])
+                path = File.join(dev_path, "stat")
+                File.open(path, WriteASCII) { |f|
+                    f.puts "%8d %8d %8d %8d %8d %8d %8d %8d %8d %8d %8d" % [
+                        dev[:reads],
+                        randint % 25,
+                        dev[:read_sectors],
+                        randint % 2500,
+                        dev[:writes],
+                        randint % 25,
+                        dev[:write_sectors],
+                        randint % 2500,
+                        randint % 7,
+                        randint % 1500,
+                        randint % 1500
+                    ]
+                }
             }
         end
 

@@ -21,7 +21,7 @@ module PerfMetrics
             @mma_ids = load_mma_ids
             @baseline_exception = nil
             @cpu_count, is_64_bit = get_cpu_info_baseline
-            RawNetData.set_32_bit(! is_64_bit)
+            DataWithWrappingCounter.set_32_bit(! is_64_bit)
             @saved_net_data = get_net_data
             @saved_disk_data.baseline
             u, i = get_cpu_idle
@@ -148,6 +148,22 @@ module PerfMetrics
         end
 
     private
+
+        class DataWithWrappingCounter
+            @@counter_modulus = 0   # default to cause exception
+
+            def self.set_32_bit(is32bit)
+                @@counter_modulus = (2 ** (is32bit ? 32 : 64))
+            end
+
+        protected
+
+            def sub_with_wrap(a, b)
+                (@@counter_modulus + a - b) % @@counter_modulus
+            end
+
+        end
+
         class DiskInventory
             def initialize(root)
                 @root = root
@@ -219,7 +235,7 @@ module PerfMetrics
                 attr_reader :device, :reads, :bytes_read, :writes, :bytes_written, :delta_time
             end
 
-            class RawDiskData
+            class RawDiskData < DataWithWrappingCounter
                 def initialize(d, t, r, rs, w, ws, ss)
                     @device = -d
                     @time = t
@@ -238,13 +254,13 @@ module PerfMetrics
                     DiskData.new(
                                     device,
                                     delta_t,
-                                    (reads - other.reads),
-                                    (read_sectors - other.read_sectors) * @sector_size,
-                                    (writes - other.writes),
-                                    (write_sectors - other.write_sectors) * @sector_size
+                                    sub_with_wrap(reads, other.reads),
+                                    sub_with_wrap(read_sectors, other.read_sectors) * @sector_size,
+                                    sub_with_wrap(writes, other.writes),
+                                    sub_with_wrap(write_sectors, other.write_sectors) * @sector_size
                                 )
                 end
-            private
+
             end
 
         end
@@ -265,7 +281,7 @@ module PerfMetrics
 
         end
 
-        class RawNetData
+        class RawNetData < DataWithWrappingCounter
             def initialize(d, t, u, r, s)
                 @time = t
                 @device = -d
@@ -283,19 +299,7 @@ module PerfMetrics
                             sub_with_wrap(@bytes_sent, other.bytes_sent)
             end
 
-            @@counter_modulus = (2 ** 64)   # default to 64 bit
-
-            def self.set_32_bit(is32bit)
-                @@counter_modulus = (2 ** (is32bit ? 32 : 64))
-            end
-
             attr_reader :device, :time, :bytes_received, :bytes_sent
-
-            private
-
-            def sub_with_wrap(a, b)
-                (@@counter_modulus + a - b) % @@counter_modulus
-            end
         end
 
         def get_net_data
