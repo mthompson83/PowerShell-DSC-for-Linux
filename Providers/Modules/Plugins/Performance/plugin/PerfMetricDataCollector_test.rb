@@ -166,6 +166,7 @@ module PerfMetrics
         end
 
         def test_get_mma_id_not_available
+            check_for_baseline_common
             @object_under_test.baseline
             ex = assert_raises(IDataCollector::Unavailable) { ||
                 @object_under_test.get_mma_ids
@@ -174,6 +175,7 @@ module PerfMetrics
         end
 
         def test_get_mma_id_not_available0
+            check_for_baseline_common
             create_mock_mma_ids 0
             @object_under_test.baseline
             ex = assert_raises(IDataCollector::Unavailable) { ||
@@ -183,6 +185,7 @@ module PerfMetrics
         end
 
         def test_get_mma_id_single
+            check_for_baseline_common
             expected_mma_id = (create_mock_mma_ids 1)[0]
             @object_under_test.baseline
             actual_mma_ids = @object_under_test.get_mma_ids
@@ -191,6 +194,7 @@ module PerfMetrics
         end
 
         def test_get_mma_id_multiple
+            check_for_baseline_common
             expected_mma_ids = create_mock_mma_ids 3
             @object_under_test.baseline
             actual_mma_ids = @object_under_test.get_mma_ids
@@ -203,6 +207,7 @@ module PerfMetrics
         end
 
         def test_get_mma_id_old_not_multihome_capable
+            check_for_baseline_common
             expected_mma_id = (create_mock_mma_ids 1, false)[0]
             @object_under_test.baseline
             actual_mma_ids = @object_under_test.get_mma_ids
@@ -211,6 +216,7 @@ module PerfMetrics
         end
 
         def test_get_cpu_idle_baseline
+            check_for_baseline_common
             expected_uptime = 42
             expected_idle = 17
             mock_proc_uptime expected_uptime, expected_idle
@@ -220,6 +226,7 @@ module PerfMetrics
         end
 
         def test_get_cpu_idle
+            check_for_baseline_common
             @object_under_test.baseline
             expected_uptime = 420
             expected_idle = 7
@@ -230,6 +237,7 @@ module PerfMetrics
         end
 
         def test_get_cpu_idle_fractional
+            check_for_baseline_common
             @object_under_test.baseline
             expected_uptime = 0.42
             expected_idle = 0.17
@@ -412,6 +420,7 @@ module PerfMetrics
         end
 
         def assert_get_net_stats(send_base, rec_base, modulus = (2**64))
+            check_for_baseline_common
             expected = {
                 "mockb" => { :base_sent => send_base, :base_rec => randint % 1492, :sent => modulus - 24, :rec => 71 },
                 "mocka" => { :base_sent => randint % 1776, :base_rec => rec_base, :sent => 17, :rec => modulus - 42 },
@@ -456,6 +465,7 @@ module PerfMetrics
         end
 
         def test_get_net_stats_interface_up
+            check_for_baseline_common
             make_virtual
             make_routes [ "mockb" ]
             make_net_dev ["mockb", "mocka", "mockc" ].collect { |k| { :d => k, :sent => randint % 1776, :rec => randint % 1492 } }
@@ -485,6 +495,7 @@ module PerfMetrics
         end
 
         def test_get_net_stats_interface_down
+            check_for_baseline_common
             make_virtual
             device_names = ["mocka", "mockb", "mockc"]
             make_routes device_names
@@ -640,6 +651,7 @@ module PerfMetrics
     private
 
         def assert_get_disk_stats(big, small, modulus)
+            check_for_baseline_common
             # create 4 mock disks, one for each of the 4 data to test.
             # use a distinct, prime, sector size for each
 
@@ -750,6 +762,14 @@ module PerfMetrics
 
         def check_for_df
             check_for DF
+        end
+
+        def check_for_lsblk
+            check_for LSBLK
+        end
+
+        def check_for_baseline_common
+            check_for_lsblk
         end
 
         def check_for(p)
