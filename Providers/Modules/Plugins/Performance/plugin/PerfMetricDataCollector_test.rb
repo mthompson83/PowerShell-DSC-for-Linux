@@ -640,8 +640,39 @@ module PerfMetrics
         end
 
         def test_get_disk_stats_new_disk
-            # should poll lsblk to get sector size
-            flunk
+            @object_under_test.baseline
+
+            mock_lsblk [ { "name" => "/dev/new_disk", "fstype" => "ext4", "log-sec" => 17 } ]
+            make_mock_disk_stats [
+                                    { :name => "new_disk", :reads => 1, :read_sectors => 2, :writes => 3, :write_sectors => 4 }
+                                 ]
+
+            time_before_1st_get = Time.now
+            ex = assert_raises(IDataCollector::Unavailable) { ||
+                @object_under_test.get_disk_stats("/dev/new_disk")
+            }
+            time_after_1st_get = Time.now
+            assert ex.message.include?("no previous data for /dev/new_disk"), ex.inspect
+
+            sleep 1
+            make_mock_disk_stats [
+                                    { :name => "new_disk", :reads => 11, :read_sectors => 22, :writes => 33, :write_sectors => 44 }
+                                 ]
+            time_before_2nd_get = Time.now
+            actual = @object_under_test.get_disk_stats("/dev/new_disk")
+            time_after_2nd_get = Time.now
+            # should have polled lsblk to get sector size
+            assert_lsblk_exit
+
+            assert_equal "new_disk", actual.device
+            assert_equal 10, actual.reads
+            assert_equal (17 * 20), actual.bytes_read
+            assert_equal 30, actual.writes
+            assert_equal (17 * 40), actual.bytes_written
+            assert_in_range (time_before_2nd_get - time_after_1st_get),
+                            (time_after_2nd_get - time_before_1st_get),
+                            actual.delta_time
+
         end
 
         def test_get_disk_stats_lsblk_not_found
@@ -667,6 +698,8 @@ module PerfMetrics
             assert_nil actual.bytes_read
             assert_equal 30, actual.writes
             assert_nil actual.bytes_written
+
+            flunk "assert delta_time"
         end
 
     private
@@ -742,7 +775,7 @@ module PerfMetrics
                         "writes" => delta[:writes],
                         "bytes_written" => delta[:write_sectors] * dev[:sector_size],
                     }
-                    # TODO make assertions about time
+                    flunk "assert delta_time"
                 }
                 make_mock_disk_stats current
 
@@ -1051,6 +1084,13 @@ module PerfMetrics
             end
         end
 
+        def assert_lsblk_exit
+            unless File.zero?(@lsblk_result)
+                flunk IO.read @lsblk_result
+            end
+            File.delete(@lsblk_result)
+        end
+
         class Fs
             def initialize(dev, mp, size, free, type=(Random.rand(3) + 2))
                 @dev = dev
@@ -1129,12 +1169,12 @@ module PerfMetrics
             File.open(@lsblk, WriteASCII, 0755) { |f|
                 marker="__MARK#{randint}__"
                 f.puts "#!/bin/sh"
-                f.puts "if [ \"$1\" != '-psdJ' -o \"$2\" != '-oNAME,FSTYPE,LOG-SEC' ]; then echo bad args: $* > #{@df_result} ; exit 1; fi"
-                f.puts "if [ $# -ne 3 -o \"$3\" != '#{expected_dev}' ]; then echo bad args: $* > #{@df_result} ; exit 1; fi" unless expected_dev.nil?
+                f.puts "if [ \"$1\" != '-psdJ' -o \"$2\" != '-oNAME,FSTYPE,LOG-SEC' ]; then echo bad args: $* > #{@lsblk_result} ; exit 1; fi"
+                f.puts "if [ $# -ne 3 -o \"$3\" != '#{expected_dev}' ]; then echo bad args: $* > #{@lsblk_result} ; exit 1; fi" unless expected_dev.nil?
                 f.puts "cat <<#{marker}"
                 f.puts JSON.generate({ "blockdevices" => devs })
                 f.puts "#{marker}"
-                f.puts "echo -n > #{@df_result}"
+                f.puts "echo -n > #{@lsblk_result}"
                 f.puts "exit 0"
             }
         end
