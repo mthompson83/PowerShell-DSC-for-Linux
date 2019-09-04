@@ -639,13 +639,34 @@ module PerfMetrics
             assert_get_disk_stats (2**64) - 1, (2**32) - 1, (2 ** 64)
         end
 
-        def test_get_disk_stats_new disk
+        def test_get_disk_stats_new_disk
             # should poll lsblk to get sector size
             flunk
         end
 
         def test_get_disk_stats_lsblk_not_found
-            flunk
+            File.delete @lsblk
+            make_mock_disk_stats [
+                                    { :name => "sda10", :reads => 1, :read_sectors => 2, :writes => 3, :write_sectors => 4 }
+                                 ]
+            @object_under_test.baseline
+
+            sleep 1
+            ex = assert_raises(IDataCollector::Unavailable) { ||
+                @object_under_test.get_disk_stats("/dev/sda10")
+            }
+            assert ex.message.include?("no previous data for /dev/sda10"), ex.inspect
+
+            sleep 1
+            make_mock_disk_stats [
+                                    { :name => "sda10", :reads => 11, :read_sectors => 22, :writes => 33, :write_sectors => 44 }
+                                 ]
+            actual = @object_under_test.get_disk_stats("/dev/sda10")
+            assert_equal "sda10", actual.device
+            assert_equal 10, actual.reads
+            assert_nil actual.bytes_read
+            assert_equal 30, actual.writes
+            assert_nil actual.bytes_written
         end
 
     private
@@ -701,7 +722,7 @@ module PerfMetrics
                                     baseline = v[:base].clone
                                     baseline[:name] = k
                                     baseline
-                               }
+                                }
             make_mock_disk_stats current
 
             @object_under_test.baseline
@@ -721,6 +742,7 @@ module PerfMetrics
                         "writes" => delta[:writes],
                         "bytes_written" => delta[:write_sectors] * dev[:sector_size],
                     }
+                    # TODO make assertions about time
                 }
                 make_mock_disk_stats current
 

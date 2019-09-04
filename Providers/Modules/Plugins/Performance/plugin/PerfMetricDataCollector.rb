@@ -115,7 +115,7 @@ module PerfMetrics
             }
             result
         rescue => ex
-            raise Unavailable.new ex.message
+            raise IDataCollector::Unavailable.new ex.message
         end
 
         # returns:
@@ -179,10 +179,10 @@ module PerfMetrics
 
             def get_disk_stats(dev)
                 current = get_disk_data dev[5, dev.length], get_sector_size(dev)
-                raise Unavailable, "no data for #{dev}" if current.nil?
+                raise IDataCollector::Unavailable, "no data for #{dev}" if current.nil?
                 previous = @saved_disk_data[dev]
                 @saved_disk_data[dev] = current
-                raise Unavailable, "no previous data for #{dev}" if previous.nil?
+                raise IDataCollector::Unavailable, "no previous data for #{dev}" if previous.nil?
                 current - previous
             end
 
@@ -197,10 +197,14 @@ module PerfMetrics
             def get_sector_sizes(*devices)
                 cmd = [ File.join(@root, "bin", "lsblk"), "-psdJ", "-oNAME,FSTYPE,LOG-SEC" ].concat(devices)
                 result = { }
-                IO.popen(cmd, { :in => :close, :err => File::NULL }) { |io|
-                    data = JSON.load(io)
-                    data["blockdevices"].each { |d| result[d["name"]] = d["log-sec"].to_i }
-                }
+                begin
+                    IO.popen(cmd, { :in => :close, :err => File::NULL }) { |io|
+                        data = JSON.load(io)
+                        data["blockdevices"].each { |d| result[d["name"]] = d["log-sec"].to_i }
+                    }
+                rescue Errno::ENOENT => ex
+                    # telemetry
+                end
                 result
             end
 
@@ -255,9 +259,9 @@ module PerfMetrics
                                     device,
                                     delta_t,
                                     sub_with_wrap(reads, other.reads),
-                                    sub_with_wrap(read_sectors, other.read_sectors) * @sector_size,
+                                    @sector_size.nil? ? nil : (sub_with_wrap(read_sectors, other.read_sectors) * @sector_size),
                                     sub_with_wrap(writes, other.writes),
-                                    sub_with_wrap(write_sectors, other.write_sectors) * @sector_size
+                                    @sector_size.nil? ? nil : (sub_with_wrap(write_sectors, other.write_sectors) * @sector_size)
                                 )
                 end
 
