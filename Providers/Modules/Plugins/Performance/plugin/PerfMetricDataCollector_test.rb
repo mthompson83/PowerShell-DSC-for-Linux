@@ -683,23 +683,30 @@ module PerfMetrics
             @object_under_test.baseline
 
             sleep 1
+            time_before_1st_get = Time.now
             ex = assert_raises(IDataCollector::Unavailable) { ||
                 @object_under_test.get_disk_stats("/dev/sda10")
             }
+            time_after_1st_get = Time.now
             assert ex.message.include?("no previous data for /dev/sda10"), ex.inspect
 
             sleep 1
             make_mock_disk_stats [
                                     { :name => "sda10", :reads => 11, :read_sectors => 22, :writes => 33, :write_sectors => 44 }
                                  ]
+            time_before_2nd_get = Time.now
             actual = @object_under_test.get_disk_stats("/dev/sda10")
+            time_after_2nd_get = Time.now
+
             assert_equal "sda10", actual.device
             assert_equal 10, actual.reads
             assert_nil actual.bytes_read
             assert_equal 30, actual.writes
             assert_nil actual.bytes_written
 
-            flunk "assert delta_time"
+            assert_in_range (time_before_2nd_get - time_after_1st_get),
+                            (time_after_2nd_get - time_before_1st_get),
+                            actual.delta_time
         end
 
     private
@@ -775,7 +782,6 @@ module PerfMetrics
                         "writes" => delta[:writes],
                         "bytes_written" => delta[:write_sectors] * dev[:sector_size],
                     }
-                    flunk "assert delta_time"
                 }
                 make_mock_disk_stats current
 
