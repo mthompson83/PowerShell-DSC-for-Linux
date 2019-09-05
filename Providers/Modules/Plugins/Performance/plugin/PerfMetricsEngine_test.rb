@@ -972,9 +972,9 @@ module PerfMetrics
             end
         end # class LogicalDiskStatusValidator
 
-        class LogicalDiskFreeValidator < LogicalDiskValidator
-            def initialize
-                super LogicalDisk::Free
+        class LogicalDiskNonNegativeValueValidator < LogicalDiskValidator
+            def initialize(name)
+                super
             end
 
             def validate(value, tags)
@@ -982,6 +982,16 @@ module PerfMetrics
                 assert_kind_of Numeric, value
                 refute_kind_of Complex, value
                 assert_operator value, :>=, 0.0
+            end
+        end # LogicalDiskNonNegativeValueValidator
+
+        class LogicalDiskFreeValidator < LogicalDiskNonNegativeValueValidator
+            def initialize
+                super LogicalDisk::Free
+            end
+
+            def validate(value, tags)
+                super
 
                 size = tags["#{ExpectedOrigin}/#{LogicalDisk::Size}"]
                 refute_nil size, "disk size tag not found"
@@ -992,17 +1002,14 @@ module PerfMetrics
 
         end # class LogicalDiskFreeValidator
 
-        class LogicalDiskFreePercentValidator < LogicalDiskValidator
+        class LogicalDiskFreePercentValidator < LogicalDiskNonNegativeValueValidator
             def initialize
                 super LogicalDisk::FreePercent
             end
 
             def validate(value, tags)
                 super
-                assert_kind_of Numeric, value
-                refute_kind_of Complex, value
 
-                assert_operator value, :>=, 0.0
                 assert_operator value, :<=, 100.0
             end
         end # class LogicalDiskFreePercentValidator
@@ -1137,6 +1144,9 @@ module PerfMetrics
             @get_filesystems_exception = nil
             @mock_filesystems = []
 
+            @get_disk_stats_exception = nil
+            @mock_disk_stats = { }
+
             @mock_net = []
 
             @mock_mma_ids = "deadbeef-abcd-efgh-ijkl-1234567890123456"
@@ -1223,9 +1233,20 @@ module PerfMetrics
             @mock_net.shift
         end
 
+        def get_disk_stats(dev)
+            refute_nil dev
+            assert dev.start_with? "/dev/", dev
+            raise @get_disk_stats_exception unless @get_disk_stats_exception.nil?
+            data = @mock_disk_stats[dev]
+            raise RuntimeError, dev if data.nil?
+            raise data if data.kind_of? Exception
+            data
+        end
+
         attr_writer :mock_free_mem_kb, :mock_total_mem_kb, :get_available_memory_exception, :mock_increment_mem_kb
         attr_writer :get_cpu_use_exception, :get_cpu_count_exception
         attr_writer :get_filesystems_exception, :mock_filesystems
+        attr_writer :get_disk_stats_exception, :mock_disk_stats
         attr_accessor :mock_mma_ids
         attr_reader :sample_intervals, :mock_cpu_count
 
