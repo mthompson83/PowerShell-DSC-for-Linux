@@ -103,6 +103,12 @@ module PerfMetrics
             Free = "FreeSpaceMB"
             Size = "diskSizeMB"
             FreePercent = "FreeSpacePercentage"
+            BytesPerSecond = "BytesPerSecond"
+            TransfersPerSecond = "TransfersPerSecond"
+            ReadBytesPerSecond = "ReadBytesPerSecond"
+            ReadsPerSecond = "ReadsPerSecond"
+            WriteBytesPerSecond = "WriteBytesPerSecond"
+            WritesPerSecond = "WritesPerSecond"
         end
 
         class Network
@@ -579,11 +585,28 @@ module PerfMetrics
             trunc_size_bytes = ExpectedFs::Mb2b(2) + (ExpectedFs::Mb2b(1) / 2)
             trunc_free_bytes = trunc_size_bytes / 4
             expected_filesystems = [
-                ExpectedFs.new(MockFs.new("/dev/d1", "/", ExpectedFs::Gb2b(10), ExpectedFs::Gb2b(1)), ExpectedFs::Gb2Mb(10), ExpectedFs::Gb2Mb(1), 10.000),
-                ExpectedFs.new(MockFs.new("/dev/d22", "/usr", ExpectedFs::Gb2b(200), ExpectedFs::Gb2b(35)), ExpectedFs::Gb2Mb(200), ExpectedFs::Gb2Mb(35), 17.500),
-                ExpectedFs.new(MockFs.new("/dev/d500", "/usr/trunc", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
+                ExpectedFs.new(
+                    ExpectedFsMount.new(MockFsMount.new("/dev/nil", "/usr/n", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
+                    ExpectedFsPerf.new(MockFsPerf.new("/dev/nil", nil, nil, nil, nil, 60))
+                ),
+                ExpectedFs.new(
+                    ExpectedFsMount.new(MockFsMount.new("/dev/nil_rwb", "/usr/n_rwb", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
+                    ExpectedFsPerf.new(MockFsPerf.new("/dev/nil_rwb", 1 * 60.1, nil, 3 * 60.1, nil, 60))
+                ),
+                ExpectedFs.new(
+                    ExpectedFsMount.new(MockFsMount.new("/dev/d1", "/", ExpectedFs::Gb2b(10), ExpectedFs::Gb2b(1)), ExpectedFs::Gb2Mb(10), ExpectedFs::Gb2Mb(1), 10.000),
+                    ExpectedFsPerf.new(MockFsPerf.new("/dev/d1", 1, 2, 3, 4, 5))
+                ),
+                ExpectedFs.new(
+                    ExpectedFsMount.new(MockFsMount.new("/dev/d22", "/usr", ExpectedFs::Gb2b(200), ExpectedFs::Gb2b(35)), ExpectedFs::Gb2Mb(200), ExpectedFs::Gb2Mb(35), 17.500),
+                    ExpectedFsPerf.new(MockFsPerf.new("/dev/d22", 6, 7, 8, 9, 0.5))
+                ),
+                ExpectedFs.new(
+                    ExpectedFsMount.new(MockFsMount.new("/dev/d500", "/usr/trunc", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
+                    ExpectedFsPerf.new(MockFsPerf.new("/dev/d500", 1 * 60.1, 2 * 60.1, 3 * 60.1, 4 * 60.1, 60))
+                ),
             ]
-            @dc.mock_filesystems = expected_filesystems.map { |f| f.fs }
+            @dc.mock_filesystems = expected_filesystems.map { |f| f.mount.fs }
 
             polling_interval = 1
             @configuration.poll = polling_interval
@@ -625,13 +648,22 @@ module PerfMetrics
 
             actual.default_proc = nil
             expected_filesystems.each { |f|
-                mp = f.fs.mount_point
+                exp_mt = f.mount
+                exp_perf = f.perf
+                mp = exp_mt.fs.mount_point
                 a = actual.delete(mp)
                 refute_nil a, "#{mp}: not in actual"
-                assert_equal 1, a[LogicalDisk::Status], mp
-                assert_equal f.sizeMb, a[LogicalDisk::Size], mp
-                assert_equal f.freeMb, a[LogicalDisk::Free], mp
-                assert_equal f.freePercent, a[LogicalDisk::FreePercent], mp
+                label = "#{exp_mt.fs.device_name} mounted on #{mp}"
+                assert_equal 1, a[LogicalDisk::Status], label
+                assert_equal exp_mt.sizeMb, a[LogicalDisk::Size], label
+                assert_equal exp_mt.freeMb, a[LogicalDisk::Free], label
+                assert_equal exp_mt.freePercent, a[LogicalDisk::FreePercent], label
+                assert_in_delta exp_perf.bytes_per_sec, a[LogicalDisk::BytesPerSecond], 0.000001, label
+                assert_in_delta exp_perf.transfers_per_sec, a[LogicalDisk::TransfersPerSecond], 0.000001, label
+                assert_in_delta exp_perf.read_bytes_per_sec, a[LogicalDisk::ReadBytesPerSecond], 0.000001, label
+                assert_in_delta exp_perf.reads_per_sec, a[LogicalDisk::ReadsPerSecond], 0.000001, label
+                assert_in_delta exp_perf.write_bytes_per_sec, a[LogicalDisk::WriteBytesPerSecond], 0.000001, label
+                assert_in_delta exp_perf.writes_per_sec, a[LogicalDisk::WritesPerSecond], 0.000001, label
             }
 
             assert actual.size == 0, Proc.new() { actual.inspect }
@@ -1041,7 +1073,7 @@ module PerfMetrics
 
         end # class NetworkValidator
 
-        class MockFs
+        class MockFsMount
             # immutable
             def initialize(dev, mount, size, free)
                 @device_name = -dev
@@ -1053,15 +1085,78 @@ module PerfMetrics
             attr_reader :mount_point, :size_in_bytes, :free_space_in_bytes, :device_name
         end
 
-        class ExpectedFs
-            def initialize(mockFS, sizeMb, freeMb, freePercent)
-                @fs = mockFS
+        class ExpectedFsMount
+            def initialize(mockFSMount, sizeMb, freeMb, freePercent)
+                @fs = mockFSMount
                 @sizeMb = sizeMb
                 @freeMb = freeMb
                 @freePercent = freePercent
             end
 
             attr_reader :fs, :sizeMb, :freeMb, :freePercent
+
+        end
+
+        class MockFsPerf
+            def initialize(dev, r, rb, w, wb, dt)
+                @__dev = -dev
+                @reads = r
+                @bytes_read = rb
+                @writes = w
+                @bytes_written = wb
+                @delta_time = dt
+            end
+
+            attr_reader :__dev, :reads, :bytes_read, :writes, :bytes_written, :delta_time
+        end
+
+        class ExpectedFsPerf
+            def initialize(mockPerf)
+                @perf = mockPerf
+            end
+
+            attr_reader :perf
+
+            def bytes_per_sec
+                r = read_bytes_per_sec
+                w = write_bytes_per_sec
+                (r.nil? || w.nil?) ? nil : (r + w)
+            end
+
+            def transfers_per_sec
+                r = reads_per_sec
+                w = writes_per_sec
+                (r.nil? || w.nil?) ? nil : (r + w)
+            end
+
+            def read_bytes_per_sec
+                v = @perf.bytes_read
+                v.nil? ? nil : (v.to_f / @perf.delta_time.to_f)
+            end
+
+            def reads_per_sec
+                v = @perf.reads
+                v.nil? ? nil : (v.to_f / @perf.delta_time.to_f)
+            end
+
+            def write_bytes_per_sec
+                v = @perf.bytes_written
+                v.nil? ? nil : (v.to_f / @perf.delta_time.to_f)
+            end
+
+            def writes_per_sec
+                v = @perf.writes
+                v.nil? ? nil : (v.to_f / @perf.delta_time.to_f)
+            end
+        end
+
+        class ExpectedFs
+            def initialize(mount, perf)
+                @mount = mount
+                @perf = perf
+            end
+
+            attr_reader :mount, :perf
 
             def self.Kb2b(kb)
                 (kb * 1024)
