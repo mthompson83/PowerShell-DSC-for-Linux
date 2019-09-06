@@ -605,6 +605,10 @@ module PerfMetrics
                     ExpectedFsMount.new(MockFsMount.new("/dev/d500", "/usr/trunc", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
                     ExpectedFsPerf.new(MockFsPerf.new(1 * 60.1, 2 * 60.1, 3 * 60.1, 4 * 60.1, 60))
                 ),
+                ExpectedFs.new(
+                    ExpectedFsMount.new(MockFsMount.new("/dev/unavail", "/usr/un", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
+                    ExpectedFsPerf.new(IDataCollector::Unavailable.new("device unavailable"))
+                ),
             ]
             @dc.mock_filesystems = expected_filesystems.map { |f| f.mount.fs }
             @dc.mock_disk_stats = Hash[expected_filesystems.map { |f| [ f.mount.fs.device_name, f.perf.perf ] }]
@@ -660,12 +664,21 @@ module PerfMetrics
                     assert_equal exp_mt.sizeMb, a[LogicalDisk::Size], label
                     assert_equal exp_mt.freeMb, a[LogicalDisk::Free], label
                     assert_equal exp_mt.freePercent, a[LogicalDisk::FreePercent], label
-                    assert_in_delta exp_perf.bytes_per_sec, a[LogicalDisk::BytesPerSecond], 0.000001, label
-                    assert_in_delta exp_perf.transfers_per_sec, a[LogicalDisk::TransfersPerSecond], 0.000001, label
-                    assert_in_delta exp_perf.read_bytes_per_sec, a[LogicalDisk::ReadBytesPerSecond], 0.000001, label
-                    assert_in_delta exp_perf.reads_per_sec, a[LogicalDisk::ReadsPerSecond], 0.000001, label
-                    assert_in_delta exp_perf.write_bytes_per_sec, a[LogicalDisk::WriteBytesPerSecond], 0.000001, label
-                    assert_in_delta exp_perf.writes_per_sec, a[LogicalDisk::WritesPerSecond], 0.000001, label
+                    if exp_perf.available?
+                        assert_in_delta exp_perf.bytes_per_sec, a[LogicalDisk::BytesPerSecond], 0.000001, label
+                        assert_in_delta exp_perf.transfers_per_sec, a[LogicalDisk::TransfersPerSecond], 0.000001, label
+                        assert_in_delta exp_perf.read_bytes_per_sec, a[LogicalDisk::ReadBytesPerSecond], 0.000001, label
+                        assert_in_delta exp_perf.reads_per_sec, a[LogicalDisk::ReadsPerSecond], 0.000001, label
+                        assert_in_delta exp_perf.write_bytes_per_sec, a[LogicalDisk::WriteBytesPerSecond], 0.000001, label
+                        assert_in_delta exp_perf.writes_per_sec, a[LogicalDisk::WritesPerSecond], 0.000001, label
+                    else
+                        refute a.key?(LogicalDisk::BytesPerSecond), label
+                        refute a.key?(LogicalDisk::TransfersPerSecond), label
+                        refute a.key?(LogicalDisk::ReadBytesPerSecond), label
+                        refute a.key?(LogicalDisk::ReadsPerSecond), label
+                        refute a.key?(LogicalDisk::WriteBytesPerSecond), label
+                        refute a.key?(LogicalDisk::WritesPerSecond), label
+                    end
                 rescue Test::Unit::AssertionFailedError => afe
                     print "\n#{File.basename(__FILE__)}(#{__LINE__}): #{label}:\n\t#{f.inspect}\n\t#{a.inspect}\n"
                     raise
@@ -1122,6 +1135,10 @@ module PerfMetrics
 
             attr_reader :perf
 
+            def available?
+                not(@perf.kind_of? Exception)
+            end
+
             def bytes_per_sec
                 r = read_bytes_per_sec
                 w = write_bytes_per_sec
@@ -1345,7 +1362,7 @@ module PerfMetrics
             raise @get_disk_stats_exception unless @get_disk_stats_exception.nil?
             data = @mock_disk_stats[dev]
             raise RuntimeError, dev if data.nil?
-            raise data if data.kind_of? Exception
+            raise data if data.kind_of?(Exception)
             data
         end
 
