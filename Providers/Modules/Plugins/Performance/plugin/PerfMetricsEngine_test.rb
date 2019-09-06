@@ -587,27 +587,27 @@ module PerfMetrics
             expected_filesystems = [
                 ExpectedFs.new(
                     ExpectedFsMount.new(MockFsMount.new("/dev/nil", "/usr/n", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
-                    ExpectedFsPerf.new(MockFsPerf.new("/dev/nil", nil, nil, nil, nil, 60))
+                    ExpectedFsPerf.new(MockFsPerf.new(nil, nil, nil, nil, 60))
                 ),
                 ExpectedFs.new(
                     ExpectedFsMount.new(MockFsMount.new("/dev/nil_rwb", "/usr/n_rwb", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
-                    ExpectedFsPerf.new(MockFsPerf.new("/dev/nil_rwb", 1 * 60.1, nil, 3 * 60.1, nil, 60))
+                    ExpectedFsPerf.new(MockFsPerf.new(1 * 60.1, nil, 3 * 60.1, nil, 60))
                 ),
                 ExpectedFs.new(
                     ExpectedFsMount.new(MockFsMount.new("/dev/d1", "/", ExpectedFs::Gb2b(10), ExpectedFs::Gb2b(1)), ExpectedFs::Gb2Mb(10), ExpectedFs::Gb2Mb(1), 10.000),
-                    ExpectedFsPerf.new(MockFsPerf.new("/dev/d1", 1, 2, 3, 4, 5))
+                    ExpectedFsPerf.new(MockFsPerf.new(1, 2, 3, 4, 5))
                 ),
                 ExpectedFs.new(
                     ExpectedFsMount.new(MockFsMount.new("/dev/d22", "/usr", ExpectedFs::Gb2b(200), ExpectedFs::Gb2b(35)), ExpectedFs::Gb2Mb(200), ExpectedFs::Gb2Mb(35), 17.500),
-                    ExpectedFsPerf.new(MockFsPerf.new("/dev/d22", 6, 7, 8, 9, 0.5))
+                    ExpectedFsPerf.new(MockFsPerf.new(6, 7, 8, 9, 0.5))
                 ),
                 ExpectedFs.new(
                     ExpectedFsMount.new(MockFsMount.new("/dev/d500", "/usr/trunc", trunc_size_bytes, trunc_free_bytes), 2, 0, 25.000),
-                    ExpectedFsPerf.new(MockFsPerf.new("/dev/d500", 1 * 60.1, 2 * 60.1, 3 * 60.1, 4 * 60.1, 60))
+                    ExpectedFsPerf.new(MockFsPerf.new(1 * 60.1, 2 * 60.1, 3 * 60.1, 4 * 60.1, 60))
                 ),
             ]
             @dc.mock_filesystems = expected_filesystems.map { |f| f.mount.fs }
-            @dc.mock_disk_stats = Hash[expected_filesystems.map { |f| p = f.perf.perf; [ p.__dev, p ] }]
+            @dc.mock_disk_stats = Hash[expected_filesystems.map { |f| [ f.mount.fs.dev, f.perf.perf ] }]
 
             polling_interval = 1
             @configuration.poll = polling_interval
@@ -1104,8 +1104,7 @@ module PerfMetrics
         end
 
         class MockFsPerf
-            def initialize(dev, r, rb, w, wb, dt)
-                @__dev = -dev
+            def initialize(r, rb, w, wb, dt)
                 @reads = r
                 @bytes_read = rb
                 @writes = w
@@ -1113,7 +1112,7 @@ module PerfMetrics
                 @delta_time = dt
             end
 
-            attr_reader :__dev, :reads, :bytes_read, :writes, :bytes_written, :delta_time
+            attr_reader :reads, :bytes_read, :writes, :bytes_written, :delta_time
         end
 
         class ExpectedFsPerf
