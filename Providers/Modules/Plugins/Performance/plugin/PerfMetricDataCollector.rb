@@ -342,27 +342,27 @@ module PerfMetrics
         end
 
         class Fs
-            def initialize(device, mount_point, size, free)
-                raise ArgumentError, device unless device.start_with?("/dev/")
+            def initialize(device_name, mount_point, size_in_bytes, free_space_in_bytes)
+                raise ArgumentError, device_name unless device_name.start_with?("/dev/")
                 raise ArgumentError, mount_point unless mount_point.start_with? "/"
-                @dev = device
-                @mp = mount_point
-                @size = Integer(size, 10)
-                raise ArgumentError, size if (@size == 0)
-                @free = Integer(free, 10)
+                @device_name = device_name
+                @mount_point = mount_point
+                @size_in_bytes = Integer(size_in_bytes, 10)
+                raise ArgumentError, size_in_bytes if (@size_in_bytes == 0)
+                @free_space_in_bytes = Integer(free_space_in_bytes, 10)
             end
 
             def <=>(o)
-                r = dev <=> o.dev
+                r = device_name <=> o.device_name
                 return r unless r.zero?
-                r = mp <=> o.mp
+                r = mount_point <=> o.mount_point
                 return r unless r.zero?
-                r = size <=> o.size
+                r = size_in_bytes <=> o.size_in_bytes
                 return r unless r.zero?
-                free <=> o.free
+                free_space_in_bytes <=> o.free_space_in_bytes
             end
 
-            attr_reader :dev, :mp, :size, :free
+            attr_reader :device_name, :mount_point, :size_in_bytes, :free_space_in_bytes
             alias_method :to_s, :inspect
         end
 

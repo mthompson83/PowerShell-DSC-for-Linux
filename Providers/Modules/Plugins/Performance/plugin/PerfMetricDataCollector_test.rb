@@ -373,14 +373,14 @@ module PerfMetrics
             assert expected.size == actual.size, Proc.new { "Count mismatch.\n\tExpected: #{expected}\n\tActual: #{actual}" }
             actual.each { |f|
                 str = f.inspect
-                e = expected[f.dev]
+                e = expected[f.device_name]
                 assert_not_nil e, "unexpected: #{str}"
                 refute e[2], "duplicate fs: #{str}"
                 e[2] = true
-                assert_equal e[0], f.mp, str
-                assert_equal e[1], f.size, str
-                assert_operator f.free, :>=, 0, "Free space should be >= 0"
-                assert_operator f.free, :<=, f.size, "Free space should be <= total size"
+                assert_equal e[0], f.mount_point, str
+                assert_equal e[1], f.size_in_bytes, str
+                assert_operator f.free_space_in_bytes, :>=, 0, "Free space should be >= 0"
+                assert_operator f.free_space_in_bytes, :<=, f.size_in_bytes, "Free space should be <= total size"
             }
         end
 
