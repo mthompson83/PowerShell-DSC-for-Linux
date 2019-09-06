@@ -607,7 +607,7 @@ module PerfMetrics
                 ),
             ]
             @dc.mock_filesystems = expected_filesystems.map { |f| f.mount.fs }
-            @dc.mock_disk_stats = Hash[expected_filesystems.map { |f| [ f.mount.fs.dev, f.perf.perf ] }]
+            @dc.mock_disk_stats = Hash[expected_filesystems.map { |f| [ f.mount.fs.device_name, f.perf.perf ] }]
 
             polling_interval = 1
             @configuration.poll = polling_interval
