@@ -640,6 +640,7 @@ module PerfMetrics
         end
 
         def test_get_disk_stats_new_disk
+            check_for_baseline_common
             @object_under_test.baseline
 
             mock_lsblk [ { "name" => "/dev/new_disk", "fstype" => "ext4", "log-sec" => 17 } ]
