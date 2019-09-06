@@ -607,6 +607,7 @@ module PerfMetrics
                 ),
             ]
             @dc.mock_filesystems = expected_filesystems.map { |f| f.mount.fs }
+            @dc.mock_disk_stats = Hash[expected_filesystems.map { |f| p = f.perf.perf; [ p.__dev, p ] }]
 
             polling_interval = 1
             @configuration.poll = polling_interval
@@ -654,16 +655,21 @@ module PerfMetrics
                 a = actual.delete(mp)
                 refute_nil a, "#{mp}: not in actual"
                 label = "#{exp_mt.fs.device_name} mounted on #{mp}"
-                assert_equal 1, a[LogicalDisk::Status], label
-                assert_equal exp_mt.sizeMb, a[LogicalDisk::Size], label
-                assert_equal exp_mt.freeMb, a[LogicalDisk::Free], label
-                assert_equal exp_mt.freePercent, a[LogicalDisk::FreePercent], label
-                assert_in_delta exp_perf.bytes_per_sec, a[LogicalDisk::BytesPerSecond], 0.000001, label
-                assert_in_delta exp_perf.transfers_per_sec, a[LogicalDisk::TransfersPerSecond], 0.000001, label
-                assert_in_delta exp_perf.read_bytes_per_sec, a[LogicalDisk::ReadBytesPerSecond], 0.000001, label
-                assert_in_delta exp_perf.reads_per_sec, a[LogicalDisk::ReadsPerSecond], 0.000001, label
-                assert_in_delta exp_perf.write_bytes_per_sec, a[LogicalDisk::WriteBytesPerSecond], 0.000001, label
-                assert_in_delta exp_perf.writes_per_sec, a[LogicalDisk::WritesPerSecond], 0.000001, label
+                begin
+                    assert_equal 1, a[LogicalDisk::Status], label
+                    assert_equal exp_mt.sizeMb, a[LogicalDisk::Size], label
+                    assert_equal exp_mt.freeMb, a[LogicalDisk::Free], label
+                    assert_equal exp_mt.freePercent, a[LogicalDisk::FreePercent], label
+                    assert_in_delta exp_perf.bytes_per_sec, a[LogicalDisk::BytesPerSecond], 0.000001, label
+                    assert_in_delta exp_perf.transfers_per_sec, a[LogicalDisk::TransfersPerSecond], 0.000001, label
+                    assert_in_delta exp_perf.read_bytes_per_sec, a[LogicalDisk::ReadBytesPerSecond], 0.000001, label
+                    assert_in_delta exp_perf.reads_per_sec, a[LogicalDisk::ReadsPerSecond], 0.000001, label
+                    assert_in_delta exp_perf.write_bytes_per_sec, a[LogicalDisk::WriteBytesPerSecond], 0.000001, label
+                    assert_in_delta exp_perf.writes_per_sec, a[LogicalDisk::WritesPerSecond], 0.000001, label
+                rescue Test::Unit::AssertionFailedError => afe
+                    print "\n#{File.basename(__FILE__)}(#{__LINE__}): #{label}:\n\t#{f.inspect}\n\t#{a.inspect}\n"
+                    raise
+                end
             }
 
             assert actual.size == 0, Proc.new() { actual.inspect }
@@ -1203,6 +1209,12 @@ module PerfMetrics
                                                                         LogicalDiskStatusValidator.new,
                                                                         LogicalDiskFreeValidator.new,
                                                                         LogicalDiskFreePercentValidator.new,
+                                                                        LogicalDiskNonNegativeValueValidator.new(LogicalDisk::ReadsPerSecond),
+                                                                        LogicalDiskNonNegativeValueValidator.new(LogicalDisk::WritesPerSecond),
+                                                                        LogicalDiskNonNegativeValueValidator.new(LogicalDisk::TransfersPerSecond),
+                                                                        LogicalDiskNonNegativeValueValidator.new(LogicalDisk::ReadBytesPerSecond),
+                                                                        LogicalDiskNonNegativeValueValidator.new(LogicalDisk::WriteBytesPerSecond),
+                                                                        LogicalDiskNonNegativeValueValidator.new(LogicalDisk::BytesPerSecond),
                                                                         NetworkValidator.new(Network::Read),
                                                                         NetworkValidator.new(Network::Write),
                                                                 ]
@@ -1329,8 +1341,8 @@ module PerfMetrics
         end
 
         def get_disk_stats(dev)
-            refute_nil dev
-            assert dev.start_with? "/dev/", dev
+            raise RuntimeError, "dev is nil" if dev.nil?
+            raise RuntimeError, "#{dev} does not start with /dev" unless dev.start_with?("/dev/")
             raise @get_disk_stats_exception unless @get_disk_stats_exception.nil?
             data = @mock_disk_stats[dev]
             raise RuntimeError, dev if data.nil?

@@ -208,6 +208,22 @@ module PerfMetrics
                 yield MetricTuple.factory "LogicalDisk", "FreeSpaceMB",
                                     fs.free_space_in_bytes / (1024 * 1024),
                                     common_tag.merge({"#{MetricTuple::Origin}/diskSizeMB" => fs.size_in_bytes / (1024 * 1024)})
+                # begin
+                    perf = @data_collector.get_disk_stats(fs.device_name)
+                    delta_time = perf.delta_time.to_f
+                    reads = perf.reads
+                    writes = perf.writes
+                    yield MetricTuple.factory "LogicalDisk", "ReadsPerSecond", (reads / delta_time), common_tag unless reads.nil?
+                    yield MetricTuple.factory "LogicalDisk", "WritesPerSecond", (writes / delta_time), common_tag unless writes.nil?
+                    yield MetricTuple.factory "LogicalDisk", "TransfersPerSecond", ((reads + writes) / delta_time), common_tag unless (reads.nil? || writes.nil?)
+                    reads = perf.bytes_read
+                    writes = perf.bytes_written
+                    yield MetricTuple.factory "LogicalDisk", "ReadBytesPerSecond", (reads / delta_time), common_tag unless reads.nil?
+                    yield MetricTuple.factory "LogicalDisk", "WriteBytesPerSecond", (writes / delta_time), common_tag unless writes.nil?
+                    yield MetricTuple.factory "LogicalDisk", "BytesPerSecond", ((reads + writes) / delta_time), common_tag unless (reads.nil? || writes.nil?)
+                # rescue IDataCollector::Unavailable => un
+                    # TODO
+                # end
             }
             nil
           end
