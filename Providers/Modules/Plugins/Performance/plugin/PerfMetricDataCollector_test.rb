@@ -1081,7 +1081,11 @@ module PerfMetrics
             expected = expected.sort
             actual = actual.sort
             (0 .. expected.size).each { |i|
-                assert_equal expected[i], actual[i], "#{i}: #{expected[i]}\n#{actual[i]}"
+                if expected[i].nil?
+                    assert_nil actual[i], "#{i}: not nil: #{actual[i]}"
+                else
+                    assert expected[i].equivilent?(actual[i]), "#{i}: #{expected[i]}\n#{actual[i]}"
+                end
             }
         end
 
@@ -1111,11 +1115,11 @@ module PerfMetrics
                 "%-10s %-15s %15d %15d" % [ @dev, @mp, @size, @free ]
             end
 
-            def ==(o)
-                @dev == o.dev &&
-                @mp == o.mp &&
-                @size == o.size &&
-                @free == o.free
+            def equivilent?(actual)
+                @dev == actual.device_name &&
+                @mp == actual.mount_point &&
+                @size == actual.size_in_bytes &&
+                @free == actual.free_space_in_bytes
             end
 
             def <=>(o)
