@@ -273,6 +273,16 @@ module PerfMetrics
             assert ex.message.index(LSCPU), ex.inspect
         end
 
+        def test_get_cpu_count_zero
+            check_for_lscpu
+            make_mock_lscpu 0
+            @object_under_test.baseline
+            ex = assert_raises(IDataCollector::Unavailable) {
+                @object_under_test.get_number_of_cpus
+            }
+            assert_lscpu_exit
+        end
+
         def test_get_cpu_count_garbage
             check_for_lscpu
 
