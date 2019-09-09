@@ -273,13 +273,14 @@ module PerfMetrics
             assert ex.message.index(LSCPU), ex.inspect
         end
 
-        def test_get_cpu_count_zero
+        def test_get_cpu_count_never_zero
             check_for_lscpu
             make_mock_lscpu 0
             @object_under_test.baseline
             ex = assert_raises(IDataCollector::Unavailable) {
                 @object_under_test.get_number_of_cpus
             }
+            assert ex.message.index("No CPUs found"), ex.inspect
             assert_lscpu_exit
         end
 
@@ -295,7 +296,10 @@ module PerfMetrics
             }
 
             @object_under_test.baseline
-            assert_equal 0, @object_under_test.get_number_of_cpus
+            ex = assert_raises(IDataCollector::Unavailable) {
+                @object_under_test.get_number_of_cpus
+            }
+            assert ex.message.index("No CPUs found"), ex.inspect
             assert_lscpu_exit
         end
 

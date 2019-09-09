@@ -402,12 +402,15 @@ module PerfMetrics
 
         def get_cpu_info_baseline
             lscpu = File.join(@root, "usr", "bin", "lscpu")
+
             count = 0
             IO.popen([lscpu, "-p" ], { :in => :close, :err => File::NULL }) { |io|
                 while (line = io.gets)
                     count += 1 if ('0' .. '9').member?(line[0])
                 end
             }
+            count = Unavailable.new "No CPUs found" if count.zero?
+
             is_64_bit = false
             IO.popen({"LC_ALL" => "C"}, lscpu, { :in => :close, :err => File::NULL }) { |io|
                 while (line = io.gets)
