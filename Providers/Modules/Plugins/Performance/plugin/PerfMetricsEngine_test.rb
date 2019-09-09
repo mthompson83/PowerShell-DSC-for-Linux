@@ -237,7 +237,7 @@ module PerfMetrics
             @dc.mock_free_mem_kb = expected_free * 1024
 
             expected_cpus = @dc.mock_cpu_count
-            expected_cpu_percentage = compute_expected_cpu_use @dc.mock_cpu_deltas(0)
+            expected_cpu_percentage = compute_expected_cpu_use expected_cpus, @dc.mock_cpu_deltas(0)
 
             polling_interval = 2
             @configuration.poll = polling_interval
@@ -369,15 +369,9 @@ module PerfMetrics
                 assert_operator interval.start_time, :>=, time_before_start + polling_interval
                 assert_operator interval.start_time, :<=, time_after_stop
 
-                processor_found = false
                 assert_sample(sample, interval) { |namespace, name, value, tags|
-                    if (namespace == Processor::Namespace && name == Processor::Utilization)
-                        refute processor_found
-                        processor_found = true
-                        assert_equal nil, tags["#{ExpectedOrigin}/#{Processor::Total}"], tags
-                    end
+                    refute (namespace == Processor::Namespace && name == Processor::Utilization)
                 }
-                assert processor_found
             }
 
             msg = Proc.new() {
@@ -532,7 +526,7 @@ module PerfMetrics
                         expected_total += (increment / 1024.0)
                         memory_metrics_found += 1
                     elsif (namespace == Processor::Namespace && name == Processor::Utilization)
-                        expected_cpu_percentage = compute_expected_cpu_use @dc.mock_cpu_deltas(i)
+                        expected_cpu_percentage = compute_expected_cpu_use expected_cpus, @dc.mock_cpu_deltas(i)
                         assert_in_delta expected_cpu_percentage, value, 0.005
                         assert_equal expected_cpus, tags["#{ExpectedOrigin}/#{Processor::Total}"], tags
                         processor_metrics_found += 1
@@ -870,8 +864,8 @@ module PerfMetrics
             tags
         end
 
-        def compute_expected_cpu_use(deltas)
-            100.0 - (100.0 * deltas[:idle]) / (1.0 * deltas[:up])
+        def compute_expected_cpu_use(cpus, deltas)
+            100.0 - (100.0 * deltas[:idle]) / (1.0 * deltas[:up] * cpus)
         end
 
         class SampleValidator

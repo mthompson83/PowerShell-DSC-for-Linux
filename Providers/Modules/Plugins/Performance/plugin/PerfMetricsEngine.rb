@@ -180,9 +180,16 @@ module PerfMetrics
           end
 
           def processor
+              uptime, idle = @data_collector.get_cpu_idle
+              uptime, idle = @cummulative_data.get_cpu_time_delta uptime, idle
+              raise IDataCollector::Unavailable.new "uptime delta is zero" if uptime.zero?
+
               cpu_count_tag = { }
               begin
-                  cpu_count_tag["#{MetricTuple::Origin}/totalCpus"] = @data_collector.get_number_of_cpus
+                  cpus =  @data_collector.get_number_of_cpus
+                  yield MetricTuple.factory "Processor", "UtilizationPercentage",
+                                  100.0 * (1.0 - ((idle * 1.0) / (uptime * 1.0 * cpus))),
+                                  { "#{MetricTuple::Origin}/totalCpus" => cpus }
               rescue => ex
                   now = Time.now
                   unless @saved_cpu_exception.same(ex)
@@ -191,12 +198,6 @@ module PerfMetrics
                       @saved_cpu_exception = SavedException.new(ex)
                   end
               end
-              uptime, idle = @data_collector.get_cpu_idle
-              uptime, idle = @cummulative_data.get_cpu_time_delta uptime, idle
-              raise IDataCollector::Unavailable.new "uptime delta is zero" if uptime.zero?
-              yield MetricTuple.factory "Processor", "UtilizationPercentage",
-                                  100.0 * (1.0 - ((idle * 1.0) / (uptime * 1.0))),
-                                  cpu_count_tag
               nil
           end
 
