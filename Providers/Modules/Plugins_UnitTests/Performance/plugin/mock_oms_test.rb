@@ -1,9 +1,13 @@
 # faking out the dependency on OMS::Common
 # frozen_string_literal: true
 begin
-    File.open('oms_common.rb', "w") {}
-    require_relative 'oms_common'
-    File.delete 'oms_common.rb'
+    require_relative 'Mixins_test.rb'
+
+    oms_common = File.join(SourcePath, "oms_common")
+    oms_common_file = oms_common + '.rb'
+    File.open(oms_common_file, "w") {}
+    require_relative oms_common
+    File.delete oms_common_file
 
     module OMS
         module Common

@@ -9,7 +9,7 @@ module PerfMetrics
     require_relative 'Mixins_test.rb'
     require_relative 'MockLog_test.rb'
 
-    require_relative 'PerfMetricDataCollector.rb'
+    require_relative File.join(SourcePath, 'PerfMetricDataCollector.rb')
 
     class DataCollector_test < Test::Unit::TestCase
 

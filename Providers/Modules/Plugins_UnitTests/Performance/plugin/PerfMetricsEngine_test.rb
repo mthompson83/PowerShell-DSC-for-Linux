@@ -7,8 +7,8 @@ module PerfMetrics
     require_relative 'Mixins_test.rb'
     require_relative 'MockLog_test.rb'
 
-    require_relative 'PerfMetricsEngine.rb'
-    require_relative 'PerfMetricIDataCollector.rb'
+    require_relative File.join(SourcePath, 'PerfMetricsEngine.rb')
+    require_relative File.join(SourcePath, 'PerfMetricIDataCollector.rb')
 
     class MetricsEngineConfiguration_test < Test::Unit::TestCase
 

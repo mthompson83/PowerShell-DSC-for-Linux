@@ -8,11 +8,11 @@ require_relative 'mock_oms_test.rb'
 require_relative 'MockLog_test.rb'
 require_relative 'Mixins_test.rb'
 
-require_relative 'oms_common'
+#require_relative 'oms_common'
 
 module Fluent
 
-    require_relative 'in_perfmetrics.rb'
+    require_relative File.join('..', '..', '..', 'Plugins', 'Performance', 'plugin', 'in_perfmetrics.rb')
 
     class PerfMetrics_test < Test::Unit::TestCase
 
