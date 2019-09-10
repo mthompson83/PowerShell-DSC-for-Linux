@@ -49,7 +49,7 @@ class Fluent::PerfMetrics < Fluent::Input
     end
 
     def to_s
-     @instance_id
+        @instance_id
     end
 
 private
