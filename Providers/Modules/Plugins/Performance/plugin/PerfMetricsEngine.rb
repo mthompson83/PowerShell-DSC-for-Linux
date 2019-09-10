@@ -140,7 +140,8 @@ module PerfMetrics
                     begin
                         send(method) { |me| data << me }
                     rescue IDataCollector::Unavailable => un
-                        # TODO
+                        @log.debug "#{method}: #{un.message}"
+                        @log.debug_backtrace un.backtrace
                     rescue => ex
                         @log.error "Unexpected exception #{ex.inspect}"
                         @log.error_backtrace ex.backtrace
@@ -207,7 +208,7 @@ module PerfMetrics
                     yield MetricTuple.factory "LogicalDisk", "FreeSpaceMB",
                                         fs.free_space_in_bytes / (1024 * 1024),
                                         common_tag.merge({"#{MetricTuple::Origin}/diskSizeMB" => fs.size_in_bytes / (1024 * 1024)})
-                    # begin
+                    begin
                         perf = @data_collector.get_disk_stats(fs.device_name)
                         delta_time = perf.delta_time.to_f
                         reads = perf.reads
@@ -220,9 +221,10 @@ module PerfMetrics
                         yield MetricTuple.factory "LogicalDisk", "ReadBytesPerSecond", (reads / delta_time), common_tag unless reads.nil?
                         yield MetricTuple.factory "LogicalDisk", "WriteBytesPerSecond", (writes / delta_time), common_tag unless writes.nil?
                         yield MetricTuple.factory "LogicalDisk", "BytesPerSecond", ((reads + writes) / delta_time), common_tag unless (reads.nil? || writes.nil?)
-                    # rescue IDataCollector::Unavailable => un
-                        # TODO
-                    # end
+                    rescue IDataCollector::Unavailable => un
+                        @log.debug "#{fs.device_name}: #{un.message}"
+                        @log.debug_backtrace un.backtrace
+                    end
                 }
                 nil
             end
