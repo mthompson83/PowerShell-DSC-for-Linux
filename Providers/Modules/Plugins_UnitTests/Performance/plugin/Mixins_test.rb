@@ -4,14 +4,6 @@ SourcePath = File.join '..', '..', '..', 'Plugins', 'Performance', 'plugin'
 
 module PerfMetrics
 
-    module HiddenConstants
-        require 'socket'
-        ExpectedPerfMetricsVersion = 'hbu_unit_test_connector_version'
-        ExpectedHostname = Socket.gethostname
-    end # module HiddenConstants
-
-    const_set :PerfMetricsVersion, HiddenConstants::ExpectedPerfMetricsVersion
-
     module StringUtils
         def parse_iso8601(ts)
             return nil unless (String === ts)
