@@ -640,7 +640,7 @@ module PerfMetrics
                     refute a.key?(name), "#{mp}: #{name} duplicated"
                     a[name] = value
                     if (name == LogicalDisk::Free)
-                       a[LogicalDisk::Size] = tags["#{ExpectedOrigin}/#{LogicalDisk::Size}"]
+                        a[LogicalDisk::Size] = tags["#{ExpectedOrigin}/#{LogicalDisk::Size}"]
                     end
                 end
             }

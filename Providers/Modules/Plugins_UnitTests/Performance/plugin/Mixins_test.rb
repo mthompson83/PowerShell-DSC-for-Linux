@@ -14,27 +14,27 @@ module PerfMetrics
 
     module StringUtils
         def parse_iso8601(ts)
-          return nil unless (String === ts)
-          match_data = @@iso8601_regex.match ts
-          return nil unless match_data
+            return nil unless (String === ts)
+            match_data = @@iso8601_regex.match ts
+            return nil unless match_data
 
-          year = match_data[1].to_i
-          month = match_data[2].to_i
-          day = match_data[3].to_i
+            year = match_data[1].to_i
+            month = match_data[2].to_i
+            day = match_data[3].to_i
 
-          hour = match_data[4].to_i
-          minutes = match_data[5].to_i
-          seconds = match_data[6].to_r
+            hour = match_data[4].to_i
+            minutes = match_data[5].to_i
+            seconds = match_data[6].to_r
 
-          tz_offset = match_data[7]
-          off_sec = if tz_offset == 'Z'
-                        0
-                    else
-                        i = (tz_offset + "000000")[1,6].to_i
-                        (tz_offset[0] == '+' ? 1 : -1) * ((((((i / 10000) % 100) * 60) + ((i / 100) % 100)) * 60) + (i % 100))
-                    end
+            tz_offset = match_data[7]
+            off_sec   = if tz_offset == 'Z'
+                            0
+                        else
+                            i = (tz_offset + "000000")[1,6].to_i
+                            (tz_offset[0] == '+' ? 1 : -1) * ((((((i / 10000) % 100) * 60) + ((i / 100) % 100)) * 60) + (i % 100))
+                        end
 
-          Time.new year, month, day, hour, minutes, seconds, off_sec
+            Time.new year, month, day, hour, minutes, seconds, off_sec
         end
 
     private
@@ -56,7 +56,7 @@ module PerfMetrics
             result = File.join(parent, "tmpdir#{Random.rand(0x7ffff)+0x80000}")
             Dir.mkdir result, 0777
             at_exit {
-              recursive_delete result
+                recursive_delete result
             }
             result
         end

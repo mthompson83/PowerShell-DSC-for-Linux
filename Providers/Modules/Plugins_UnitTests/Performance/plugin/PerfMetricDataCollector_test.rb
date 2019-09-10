@@ -375,8 +375,8 @@ module PerfMetrics
             IO.popen("sh -c '#{DF} --type=ext2 --type=ext3 --type=ext4 --block-size=1 --output=source,target,size | tail -n +2'") { |io|
                 data = io.readlines
                 data.each { |line|
-                   s = line.split(" ")
-                   expected[s[0]] = [ s[1], s[2].to_i, false ]
+                    s = line.split(" ")
+                    expected[s[0]] = [ s[1], s[2].to_i, false ]
                 }
             }
             @object_under_test = DataCollector.new
@@ -459,7 +459,7 @@ module PerfMetrics
                 assert_equal expect[:rec], v.bytes_received, v.device
                 range = ( (t_before_sample - t_after_baseline) ..  (t_after_sample - t_before_baseline) )
                 assert range.cover?(v.delta_time), Proc.new { "#{v.delta_time} should be in #{range}" }
-             }
+            }
             assert expected.empty?, expected.to_s
 
             # with no changes in the net dev data, all interfaces should report 0
@@ -731,40 +731,40 @@ module PerfMetrics
             disks = {
 
                 "reads" => {
-                            :sector_size => 3 * 512,
-                            :base   => { :reads =>   big, :read_sectors => small, :writes => small, :write_sectors => small },
-                            :deltas => [
-                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
-                                        { :reads =>   big, :read_sectors =>     1, :writes =>     2, :write_sectors =>     3 }
-                                       ]
-                           },
+                    :sector_size => 3 * 512,
+                    :base   => { :reads =>   big, :read_sectors => small, :writes => small, :write_sectors => small },
+                    :deltas => [
+                                    { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                    { :reads =>   big, :read_sectors =>     1, :writes =>     2, :write_sectors =>     3 }
+                    ]
+                },
 
                 "bytes_read" => {
-                            :sector_size => 5 * 512,
-                            :base   => { :reads => small, :read_sectors =>   big, :writes => small, :write_sectors => small },
-                            :deltas => [
-                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
-                                        { :reads =>     1, :read_sectors =>   big, :writes =>     2, :write_sectors =>     3 }
-                                       ]
-                           },
+                    :sector_size => 5 * 512,
+                    :base   => { :reads => small, :read_sectors =>   big, :writes => small, :write_sectors => small },
+                    :deltas => [
+                                    { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                    { :reads =>     1, :read_sectors =>   big, :writes =>     2, :write_sectors =>     3 }
+                    ]
+                },
 
                 "writes" => {
-                            :sector_size => 7 * 512,
-                            :base   => { :reads => small, :read_sectors => small, :writes =>   big, :write_sectors => small },
-                            :deltas => [
-                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
-                                        { :reads =>     1, :read_sectors =>     2, :writes =>   big, :write_sectors =>     3 }
-                                       ]
-                           },
+                    :sector_size => 7 * 512,
+                    :base   => { :reads => small, :read_sectors => small, :writes =>   big, :write_sectors => small },
+                    :deltas => [
+                                    { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                    { :reads =>     1, :read_sectors =>     2, :writes =>   big, :write_sectors =>     3 }
+                    ]
+                },
 
                 "bytes_written" => {
-                            :sector_size => 11 * 512,
-                            :base   => { :reads => small, :read_sectors => small, :writes => small, :write_sectors =>   big },
-                            :deltas => [
-                                        { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
-                                        { :reads =>     1, :read_sectors =>     2, :writes =>     3, :write_sectors =>   big }
-                                       ]
-                           },
+                    :sector_size => 11 * 512,
+                    :base   => { :reads => small, :read_sectors => small, :writes => small, :write_sectors =>   big },
+                    :deltas => [
+                                    { :reads => small, :read_sectors => small, :writes => small, :write_sectors => small },
+                                    { :reads =>     1, :read_sectors =>     2, :writes =>     3, :write_sectors =>   big }
+                    ]
+                },
 
             }
 
