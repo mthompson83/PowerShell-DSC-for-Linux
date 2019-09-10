@@ -1,5 +1,3 @@
-# Copyright (c) 2016-2017 Microsoft.  All rights reserved.
-
 # frozen_string_literal: true
 
 require 'scanf'

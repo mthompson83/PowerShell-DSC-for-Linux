@@ -1,5 +1,3 @@
-# Copyright (c) 2019 Microsoft.  All rights reserved.
-
 # frozen_string_literal: true
 
 
