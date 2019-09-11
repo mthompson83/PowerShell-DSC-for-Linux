@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-SourcePath = File.join '..', '..', '..', 'Plugins', 'Performance', 'plugin'
+SourcePath = File.join '..', '..', '..', 'Plugins', 'VMInsights', 'plugin'
 
 module PerfMetrics
 

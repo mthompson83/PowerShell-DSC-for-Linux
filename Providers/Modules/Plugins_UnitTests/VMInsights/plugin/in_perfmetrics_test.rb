@@ -10,7 +10,7 @@ require_relative 'Mixins_test.rb'
 
 module Fluent
 
-    require_relative File.join('..', '..', '..', 'Plugins', 'Performance', 'plugin', 'in_perfmetrics.rb')
+    require_relative File.join(SourcePath, 'in_perfmetrics.rb')
 
     class PerfMetrics_test < Test::Unit::TestCase
 
