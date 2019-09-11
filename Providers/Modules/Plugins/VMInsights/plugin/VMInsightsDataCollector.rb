@@ -3,7 +3,7 @@
 require 'scanf'
 
 module PerfMetrics
-    require_relative 'PerfMetricIDataCollector.rb'
+    require_relative 'VMInsightsIDataCollector.rb'
 
     class DataCollector < IDataCollector
         def initialize(root_directory_name="/")

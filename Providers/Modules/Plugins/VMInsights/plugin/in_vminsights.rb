@@ -4,8 +4,8 @@
 class Fluent::PerfMetrics < Fluent::Input
     require_relative 'oms_common'
 
-    require_relative 'PerfMetricDataCollector.rb'
-    require_relative 'PerfMetricsEngine.rb'
+    require_relative 'VMInsightsDataCollector.rb'
+    require_relative 'VMInsightsEngine.rb'
 
     Fluent::Plugin.register_input('perfmetrics', self)
 

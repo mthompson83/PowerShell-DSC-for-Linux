@@ -2,7 +2,7 @@
 
 module PerfMetrics
 
-    require_relative 'PerfMetricIDataCollector.rb'
+    require_relative 'VMInsightsDataCollector.rb'
 
     class MetricsEngine
 
