@@ -8,8 +8,6 @@ require_relative 'mock_oms_test.rb'
 require_relative 'MockLog_test.rb'
 require_relative 'Mixins_test.rb'
 
-#require_relative 'oms_common'
-
 module Fluent
 
     require_relative File.join('..', '..', '..', 'Plugins', 'Performance', 'plugin', 'in_perfmetrics.rb')
@@ -122,8 +120,7 @@ module Fluent
                 assert_kind_of Hash, wrapper
                 text = wrapper.inspect
                 assert_equal 'INSIGHTS_METRICS_BLOB', wrapper['DataType'], text
-                #assert_equal 'VMInsights', wrapper['IPName'], text
-                assert_equal 'ServiceMap', wrapper['IPName'], text
+                assert_equal 'VMInsights', wrapper['IPName'], text
 
                 array = wrapper['DataItems']
                 text = array.inspect

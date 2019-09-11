@@ -65,8 +65,7 @@ private
             begin
                 wrapper = {
                     "DataType"  => "INSIGHTS_METRICS_BLOB",
-                    #"IPName"    => "VMInsights",
-                    "IPName"    => "ServiceMap",
+                    "IPName"    => "VMInsights",
                     "DataItems" => message,
                 }
                 router.emit @tag, Fluent::Engine.now, wrapper
