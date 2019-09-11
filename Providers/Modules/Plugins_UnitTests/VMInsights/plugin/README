@@ -2,6 +2,6 @@ To run all unit tests:
     ruby Unit_test.rb
 
 Individual test suites:
-    ruby in_perfmetrics_test.rb
-    ruby PerfMetricDataCollector_test.rb
-    ruby PerfMetricsEngine_test.rb
+    ruby in_vminsights_test.rb
+    ruby VMInsightsDataCollector_test.rb
+    ruby VMInsightsEngine_test.rb
