@@ -2,7 +2,7 @@
 
 require 'scanf'
 
-module PerfMetrics
+module VMInsights
     require_relative 'VMInsightsIDataCollector.rb'
 
     class DataCollector < IDataCollector

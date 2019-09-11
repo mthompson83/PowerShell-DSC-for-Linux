@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PerfMetrics
+module VMInsights
 
     # Design assumptions:
     # 1. Changing the number of active CPUs requires a system reboot.

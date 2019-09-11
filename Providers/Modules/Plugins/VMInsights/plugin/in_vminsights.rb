@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 
-class Fluent::PerfMetrics < Fluent::Input
+class Fluent::VMInsights < Fluent::Input
     require_relative 'oms_common'
 
     require_relative 'VMInsightsDataCollector.rb'
@@ -22,7 +22,7 @@ class Fluent::PerfMetrics < Fluent::Input
         super
 
         begin
-            @heartbeat_uploader = conf[:MockMetricsEngine] || ::PerfMetrics::MetricsEngine.new
+            @heartbeat_uploader = conf[:MockMetricsEngine] || ::VMInsights::MetricsEngine.new
             @heartbeat_upload_configuration = make_heartbeat_configuration
         rescue Fluent::ConfigError
             raise
@@ -55,7 +55,7 @@ class Fluent::PerfMetrics < Fluent::Input
 private
 
     def make_heartbeat_configuration
-        config = ::PerfMetrics::MetricsEngine::Configuration.new OMS::Common.get_hostname, @log, ::PerfMetrics::DataCollector.new
+        config = ::VMInsights::MetricsEngine::Configuration.new OMS::Common.get_hostname, @log, ::VMInsights::DataCollector.new
         config.poll = @poll
         config
     end
@@ -82,4 +82,4 @@ private
         @heartbeat_uploader.stop
     end
 
-end # class Fluent::PerfMetrics
+end # class Fluent::VMInsights

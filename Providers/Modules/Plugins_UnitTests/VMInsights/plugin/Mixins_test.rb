@@ -2,7 +2,7 @@
 
 SourcePath = File.join '..', '..', '..', 'Plugins', 'VMInsights', 'plugin'
 
-module PerfMetrics
+module VMInsights
 
     module StringUtils
         def parse_iso8601(ts)
@@ -145,4 +145,4 @@ module PerfMetrics
 
     end # class SyncPoint
 
-end # module PerfMetrics
+end # module VMInsights

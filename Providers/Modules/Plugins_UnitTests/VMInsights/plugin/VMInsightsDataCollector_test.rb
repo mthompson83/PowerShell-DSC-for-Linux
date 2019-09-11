@@ -2,7 +2,7 @@
 
 require 'test/unit'
 
-module PerfMetrics
+module VMInsights
 
     require_relative 'Mixins_test.rb'
     require_relative 'MockLog_test.rb'

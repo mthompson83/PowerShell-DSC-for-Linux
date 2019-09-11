@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PerfMetrics
+module VMInsights
 
 private
 
@@ -242,4 +242,4 @@ private
 
     end # class MockLog
 
-end # module PerfMetrics
+end # module VMInsights

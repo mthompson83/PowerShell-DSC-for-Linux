@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module PerfMetrics
+module VMInsights
 
     require_relative 'VMInsightsDataCollector.rb'
 

@@ -12,7 +12,7 @@ module Fluent
 
     require_relative File.join(SourcePath, 'in_vminsights.rb')
 
-    class PerfMetrics_test < Test::Unit::TestCase
+    class VMInsights_test < Test::Unit::TestCase
 
         def initialize(*args)
             super(*args)
@@ -21,10 +21,10 @@ module Fluent
 
         def setup
             @test_start_time = Time.now
-            @object_under_test = PerfMetrics.new
+            @object_under_test = VMInsights.new
             @mock_tag = "ThE TaG NaMe"
-            @mock_log = ::PerfMetrics::MockLog.new
-            @mock_log.ignore_range = ::PerfMetrics::MockLog::NONE
+            @mock_log = ::VMInsights::MockLog.new
+            @mock_log.ignore_range = ::VMInsights::MockLog::NONE
             @mock_metric_engine = MockMetricsEngine.new
 
             @conf = {
@@ -75,7 +75,7 @@ module Fluent
             @object_under_test.configure @conf
             logs = @mock_log.to_a
             assert logs.size == 0, Proc.new() { @mock_log.to_s }
-            @mock_log.ignore_range = ::PerfMetrics::MockLog::DEBUG_AND_BELOW
+            @mock_log.ignore_range = ::VMInsights::MockLog::DEBUG_AND_BELOW
 
             begin
                 @object_under_test.start
@@ -95,7 +95,7 @@ module Fluent
             @object_under_test.configure @conf
             logs = @mock_log.to_a
             assert logs.size == 0, Proc.new() { @mock_log.to_s }
-            @mock_log.ignore_range = ::PerfMetrics::MockLog::DEBUG_AND_BELOW
+            @mock_log.ignore_range = ::VMInsights::MockLog::DEBUG_AND_BELOW
 
             begin
                 expected_data = [ "mock data", "atad kcom" ]
@@ -139,11 +139,11 @@ module Fluent
     private
 
         def assert_param key, *expected
-            assert_equal expected, Fluent::Input.params(Fluent::PerfMetrics)[key]
+            assert_equal expected, Fluent::Input.params(Fluent::VMInsights)[key]
         end
 
         def assert_configure_log log, interface="127.0.0.1", port=7560
-            assert_equal ::PerfMetrics::MockLog::INFO, log[:severity], log.to_s
+            assert_equal ::VMInsights::MockLog::INFO, log[:severity], log.to_s
             assert_equal "#{@object_under_test}: Configured on interface/port: #{interface}/#{port}", log[:message]
         end
 
@@ -177,7 +177,7 @@ module Fluent
             assert t <= max, Proc.new() { "max=#{block[max]} actual=#{block[t]}" }
         end
 
-    end # class PerfMetrics_test
+    end # class VMInsights_test
 
     class MockMetricsEngine
         include Test::Unit::Assertions
